@@ -1,0 +1,135 @@
+/* ============================================================
+   Colour palettes — user-selectable, applied through <html data-palette="ID">.
+   No data-palette (or "default") = the original teal/navy look, defined in design-system.css
+   and in each page's own :root. Every block below only re-assigns the same variables, so the
+   components, layout and actions are identical in all palettes.
+
+   Source (reel palettes; see the design brief): each palette = 60% main / 30% secondary / 10% accent.
+   VERIFIED hex from the source:   #2C3440 Gunmetal Blue, #FFB800 Saffron Gold,
+                                   #E2551F Volcano Orange, #3D2BFF Electric Indigo.
+   DERIVED (source hex unverified; names/descriptions only — a proposal, replace when verified):
+     Pale Pistachio #DCE8BE, Bitter Cocoa #2E1B14, Lipstick Red #C8173F,
+     Warm Concrete #B4ADA2, Toasted Cream #F6E8D2.
+   Other derived helpers (card/inset tints, borders, hover shades) are marked "helper".
+   Brand colour != status colour: --red/--green/--amber (status) are NOT re-assigned here.
+
+   Tokens: --page-bg page canvas | --white cards & sidebar | --bg inset fills inside cards
+           --teal(+-light/-dark/-glow) = ACCENT (primary action / selection / links)
+           --ink text colour (was --navy) | --navy dark fills with white text
+           --on-accent text on accent fills.
+   ============================================================ */
+
+/* ---- 1. Pistachio / Cocoa / Red ---- */
+html[data-palette="pistachio-cocoa-red"] {
+  --page-bg: #DCE8BE;            /* main: Pale Pistachio (derived) */
+  --bg: #E9F0D3;                 /* helper: inset fill */
+  --white: #F3F7E6;              /* helper: card surface */
+  --bg-white: #F3F7E6;
+  --border: #C7D5A3;             /* helper */
+  --border-focus: #C8173F;
+  --ink: #2E1B14;                /* secondary: Bitter Cocoa (derived) */
+  --navy: #2E1B14;
+  --text-sub: #4A3629;
+  --text-muted: #6A5646;
+  --muted: #6A5646;
+  --teal: #C8173F;               /* accent: Lipstick Red (derived) */
+  --teal-dark: #A41234;          /* helper */
+  --teal-light: rgba(200,23,63,.10);
+  --teal-glow: rgba(200,23,63,.30);
+  --on-accent: #FFFFFF;
+  --shadow-teal: 0 4px 16px rgba(200,23,63,.20);
+  --sq-grad: linear-gradient(135deg, #E0486B, #C8173F 55%, #A41234);
+  --sq-glow: rgba(200,23,63,.35);
+}
+
+/* ---- 2. Gunmetal / Concrete / Gold (dark) ---- */
+html[data-palette="gunmetal-concrete-gold"] {
+  color-scheme: dark;
+  --page-bg: #2C3440;            /* main: Gunmetal Blue (verified) */
+  --bg: #262D38;                 /* helper: inset fill */
+  --white: #364050;              /* helper: card surface */
+  --bg-white: #364050;
+  --border: #4A5565;             /* helper */
+  --border-focus: #FFB800;
+  --ink: #F2F0EB;                /* helper: light text */
+  --navy: #1B212A;               /* helper: dark fills that carry white text */
+  --text-sub: #CFCAC1;
+  --text-muted: #B4ADA2;         /* secondary: Warm Concrete (derived) */
+  --muted: #B4ADA2;
+  --teal: #FFB800;               /* accent: Saffron Gold (verified) */
+  --teal-dark: #E0A000;          /* helper */
+  --teal-light: rgba(255,184,0,.14);
+  --teal-glow: rgba(255,184,0,.30);
+  --on-accent: #2C3440;          /* white on gold is 1.73:1; Gunmetal on gold is 7.24:1 */
+  --shadow-sm: 0 2px 10px rgba(0,0,0,.28);
+  --shadow-md: 0 6px 20px rgba(0,0,0,.38);
+  --shadow-teal: 0 4px 16px rgba(255,184,0,.20);
+  --sq-grad: linear-gradient(135deg, #FFD15C, #FFB800 55%, #E0A000);
+  --sq-glow: rgba(255,184,0,.35);
+}
+
+/* ---- 3. Orange / Cream / Indigo ---- */
+html[data-palette="volcano-cream-indigo"] {
+  --page-bg: #E2551F;            /* main: Volcano Orange (verified) */
+  --bg: #F0DFC4;                 /* helper: inset fill */
+  --white: #F6E8D2;              /* secondary: Toasted Cream (derived) — cards, sidebar */
+  --bg-white: #F6E8D2;
+  --border: #E0CBA8;             /* helper */
+  --border-focus: #3D2BFF;
+  --ink: #1E1410;                /* helper: dark text (4.78:1 on the orange) */
+  --navy: #1E1410;
+  --text-sub: #4A3A2C;
+  --text-muted: #6B5846;
+  --muted: #6B5846;
+  --teal: #3D2BFF;               /* accent: Electric Indigo (verified) */
+  --teal-dark: #2F1FD0;          /* helper */
+  --teal-light: rgba(61,43,255,.10);
+  --teal-glow: rgba(61,43,255,.30);
+  --on-accent: #FFFFFF;          /* white on indigo is 7.03:1 */
+  --shadow-teal: 0 4px 16px rgba(61,43,255,.22);
+  --sq-grad: linear-gradient(135deg, #6D5FFF, #3D2BFF 55%, #2F1FD0);
+  --sq-glow: rgba(61,43,255,.35);
+}
+
+/* ---- Shared: the page canvas follows --page-bg in every palette ---- */
+html[data-palette]:not([data-palette="default"]),
+html[data-palette]:not([data-palette="default"]) body {
+  background: var(--page-bg) !important;
+  color: var(--ink);
+}
+/* Page titles sit directly on the canvas: keep them on --ink (explicit, not inherited from a hard-coded colour) */
+html[data-palette="gunmetal-concrete-gold"] input,
+html[data-palette="gunmetal-concrete-gold"] select,
+html[data-palette="gunmetal-concrete-gold"] textarea {
+  background-color: var(--bg);
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+/* ---- Palette picker (injected into the side menu by nav.js) ---- */
+.pal-picker { padding: 10px 14px 6px; border-top: 1px solid var(--border); }
+.pal-picker-title { font-size: .72em; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; }
+.pal-picker-row { display: flex; flex-direction: column; gap: 6px; }
+.pal-opt {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 10px;
+  background: transparent; color: var(--ink, var(--navy));
+  font: inherit; font-size: .8em; cursor: pointer; text-align: right;
+}
+.pal-opt:hover { border-color: var(--teal); }
+.pal-opt:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.pal-opt[aria-pressed="true"] { border-color: var(--teal); background: var(--teal-light); font-weight: 700; }
+.pal-opt[aria-pressed="true"]::after { content: '✓'; margin-inline-start: auto; color: var(--teal); }
+/* 60/30/10 swatch bar — direction:ltr so the order is the same in RTL pages */
+.pal-sw { direction: ltr; display: flex; flex: 0 0 54px; height: 18px; border-radius: 5px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.12); }
+.pal-sw i { display: block; height: 100%; }
+.pal-sw i:nth-child(1) { flex: 60; background: var(--s1); }
+.pal-sw i:nth-child(2) { flex: 30; background: var(--s2); }
+.pal-sw i:nth-child(3) { flex: 10; background: var(--s3); }
+.pal-opt[data-pal="default"]               { --s1:#f7f6f2; --s2:#1e2a4a; --s3:#1e9d8b; }
+.pal-opt[data-pal="pistachio-cocoa-red"]   { --s1:#DCE8BE; --s2:#2E1B14; --s3:#C8173F; }
+.pal-opt[data-pal="gunmetal-concrete-gold"]{ --s1:#2C3440; --s2:#B4ADA2; --s3:#FFB800; }
+.pal-opt[data-pal="volcano-cream-indigo"]  { --s1:#E2551F; --s2:#F6E8D2; --s3:#3D2BFF; }
+
+/* Current page in the side menu: the base pages grey it out (#b8c0d0, unreadable on the tinted surfaces) */
+html[data-palette]:not([data-palette="default"]) .nav-item.active { color: var(--teal); font-weight: 700; }

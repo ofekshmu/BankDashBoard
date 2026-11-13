@@ -30,7 +30,7 @@ body {
   background: var(--bg);
   min-height: 100vh;
   direction: rtl;
-  color: var(--navy);
+  color: var(--ink, var(--navy));
   font-size: 14px;
   display: flex;
   flex-direction: column;
@@ -42,7 +42,7 @@ body {
   width: 42px; height: 42px;
   background: var(--white); border: 1.5px solid var(--border);
   border-radius: 10px; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: var(--navy); z-index: 400;
+  cursor: pointer; color: var(--ink, var(--navy)); z-index: 400;
   box-shadow: 0 2px 10px rgba(0,0,0,.06);
   transition: background .15s, color .15s, border-color .15s;
 }
@@ -71,7 +71,7 @@ body {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.sidebar-app-name { display:flex;align-items:center;gap:10px;text-decoration:none;font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-app-name { display:flex;align-items:center;gap:10px;text-decoration:none;font-size: .95em; font-weight: 700; color: var(--ink, var(--navy)); }
 .sidebar-close-btn {
   margin-right: auto; background: none; border: none;
   cursor: pointer; font-size: 1.1em; color: var(--text-sub);
@@ -114,7 +114,7 @@ body {
 /* ── Page layout ──────────────────────────────────────────── */
 .main{margin-right:0;flex:1;padding:0 28px 90px;min-width:0}
 .page-header{display:flex;flex-direction:column;margin-bottom:18px;padding-top:26px;gap:4px;padding-right:62px}
-.page-header h1{font-size:1.85em;font-weight:700;color:var(--navy)}
+.page-header h1{font-size:1.85em;font-weight:700;color:var(--ink, var(--navy))}
 .page-header .sub{font-size:.8em;color:var(--text-muted)}
 
 .hidden{display:none !important}
@@ -128,7 +128,7 @@ body {
    see what's actually happening instead of a generic placeholder. */
 .ca-progress-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:22px}
 .ca-progress-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.ca-progress-label{font-size:.88em;font-weight:600;color:var(--navy)}
+.ca-progress-label{font-size:.88em;font-weight:600;color:var(--ink, var(--navy))}
 .ca-progress-pct{font-size:.8em;color:var(--text-muted);direction:ltr}
 .ca-progress-bar-track{height:8px;border-radius:6px;background:var(--bg);overflow:hidden}
 .ca-progress-bar-fill{height:100%;width:0%;background:var(--teal);border-radius:6px;transition:width .3s ease}
@@ -166,14 +166,14 @@ body {
 .ca-hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .ca-hero-card-id{display:flex;align-items:center;gap:8px}
 .ca-hero-swatch{width:12px;height:12px;border-radius:50%;flex-shrink:0}
-.ca-hero-card-name{font-weight:700;font-size:1.05em;color:var(--navy)}
+.ca-hero-card-name{font-weight:700;font-size:1.05em;color:var(--ink, var(--navy))}
 .ca-hero-card-sub{font-size:.8em;color:var(--text-muted);margin-top:2px;margin-right:20px}
 .ca-status-badge{font-size:.72em;font-weight:700;border-radius:12px;padding:3px 11px;white-space:nowrap;flex-shrink:0}
 .ca-status-badge.verified{background:#e8f7f5;color:var(--teal)}
 .ca-status-badge.not_verified{background:#fff3e0;color:var(--amber)}
 .ca-status-badge.not_found{background:#eceff3;color:#6b7280}
 .ca-status-badge.open{background:#eaf2fb;color:#2f6fb0}
-.ca-hero-amount{font-size:2.1em;font-weight:700;color:var(--navy);margin-top:16px;direction:ltr;text-align:left}
+.ca-hero-amount{font-size:2.1em;font-weight:700;color:var(--ink, var(--navy));margin-top:16px;direction:ltr;text-align:left}
 .ca-hero-limit-row{margin-top:14px}
 .ca-hero-limit-track{height:8px;border-radius:6px;background:var(--bg);overflow:hidden}
 .ca-hero-limit-fill{height:100%;border-radius:6px;background:var(--teal);transition:width .25s ease}
@@ -183,7 +183,7 @@ body {
 .ca-hero-limit-set input{width:110px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.82em;font-family:inherit;direction:ltr;text-align:left}
 .ca-btn{padding:6px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--white);font-size:.78em;cursor:pointer;font-family:inherit}
 .ca-btn:hover{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}
-.ca-btn-primary{padding:6px 14px;border-radius:var(--radius-sm);border:none;background:var(--teal);color:#fff;font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit}
+.ca-btn-primary{padding:6px 14px;border-radius:var(--radius-sm);border:none;background:var(--teal);color:var(--on-accent, #fff);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit}
 .ca-btn-primary:hover{background:var(--teal-dark)}
 .ca-hero-edit-link{font-size:.76em;color:var(--text-muted);cursor:pointer;text-decoration:underline;background:none;border:none;font-family:inherit;padding:0}
 .ca-hero-edit-link:hover{color:var(--teal)}
@@ -227,6 +227,8 @@ body {
 }
 </style>
 <link rel="stylesheet" href="/design-system.css">
+<script>try{var _p=localStorage.getItem("bd-palette");if(_p)document.documentElement.setAttribute("data-palette",_p)}catch(e){}</script>
+<link rel="stylesheet" href="/palettes.css">
 </head>
 <body>
 

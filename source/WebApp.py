@@ -497,7 +497,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = _timedelta(days=7)
 _PUBLIC_PATHS = {
     '/', '/favicon.ico', '/favicon.svg',
     '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png',
-    '/manifest.json', '/design-system.css', '/stagger.css', '/motion.css', '/nav.js',
+    '/manifest.json', '/design-system.css', '/palettes.css', '/stagger.css', '/motion.css', '/nav.js',
     '/api/auth/verify', '/api/auth/check', '/api/version',
 }
 
@@ -691,6 +691,14 @@ def serve_motion_css():
 def serve_design_system():
     css_path = os.path.join(_HERE, 'html', 'design-system.css')
     return send_file(css_path, mimetype='text/css')
+
+
+@app.route('/palettes.css')
+def serve_palettes():
+    """User-selectable colour palettes (applied via <html data-palette>); public so the login page can use them."""
+    resp = send_file(os.path.join(_HERE, 'html', 'palettes.css'), mimetype='text/css', max_age=0)
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
 
 
 @app.route('/outputs/<path:filename>')

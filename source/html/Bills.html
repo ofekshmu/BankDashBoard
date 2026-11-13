@@ -30,7 +30,7 @@ body {
   background: var(--bg);
   min-height: 100vh;
   direction: rtl;
-  color: var(--navy);
+  color: var(--ink, var(--navy));
   font-size: 14px;
   display: flex;
   flex-direction: column;
@@ -48,7 +48,7 @@ body {
   border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
-  color: var(--navy);
+  color: var(--ink, var(--navy));
   box-shadow: var(--shadow-sm);
   transition: background .15s, color .15s, border-color .15s;
 }
@@ -76,7 +76,7 @@ body {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.sidebar-app-name { display:flex;align-items:center;gap:10px;text-decoration:none;font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-app-name { display:flex;align-items:center;gap:10px;text-decoration:none;font-size: .95em; font-weight: 700; color: var(--ink, var(--navy)); }
 .sidebar-close-btn {
   margin-right: auto; background: none; border: none;
   cursor: pointer; font-size: 1.1em; color: #555;
@@ -159,7 +159,7 @@ body {
   padding: 3px 9px !important; border-radius: 20px;
   background: var(--white); border: 1.5px solid var(--border);
   cursor: pointer; font-size: 0.74em !important; font-weight: 600;
-  color: var(--navy); transition: border-color .12s, background .12s, color .12s;
+  color: var(--ink, var(--navy)); transition: border-color .12s, background .12s, color .12s;
   line-height: 1.6; width: auto !important; min-height: unset !important;
   margin-bottom: 0 !important;
 }
@@ -184,12 +184,12 @@ body {
   padding: 4px 10px !important; border-radius: 6px;
   border: 1.5px solid var(--border); background: var(--bg);
   cursor: pointer; font-size: 0.78em !important; font-weight: 600;
-  color: var(--navy); font-family: inherit;
+  color: var(--ink, var(--navy)); font-family: inherit;
   transition: all .12s; flex-shrink: 0;
   width: auto !important; min-height: unset !important; margin-bottom: 0 !important;
 }
 .range-preset-btn:hover,
-.range-preset-btn.active { border-color: var(--teal); background: var(--teal); color: #fff; }
+.range-preset-btn.active { border-color: var(--teal); background: var(--teal); color: var(--on-accent, #fff); }
 
 /* ── KPI group dividers ──────────────────────────────────── */
 .type-kpi-group + .type-kpi-group { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 4px; }
@@ -237,9 +237,9 @@ body {
   display: inline-flex; align-items: center; gap: 5px;
 }
 .btn:hover { transform: translateY(-1px); }
-.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary { background: var(--teal); color: var(--on-accent, #fff); }
 .btn-primary:hover { background: #178a79; box-shadow: 0 3px 10px var(--teal-glow); }
-.btn-ghost { background: transparent; border: 1.5px solid var(--border); color: var(--navy); }
+.btn-ghost { background: transparent; border: 1.5px solid var(--border); color: var(--ink, var(--navy)); }
 .btn-ghost:hover { border-color: var(--teal); color: var(--teal); }
 .btn-danger { background: #fef2f2; border: 1.5px solid #fca5a5; color: var(--red); }
 .btn-danger:hover { background: var(--red); color: #fff; border-color: var(--red); }
@@ -352,7 +352,7 @@ body {
   background: var(--white);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  color: var(--navy); font-size: 0.85em;
+  color: var(--ink, var(--navy)); font-size: 0.85em;
   transition: border-color .12s, color .12s;
 }
 .nav-arrow:hover { border-color: var(--teal); color: var(--teal); }
@@ -373,7 +373,7 @@ body {
   padding: 0 0 12px;
   font-size: 0.77em; font-weight: 700;
   letter-spacing: 0; text-transform: none;
-  color: var(--navy);
+  color: var(--ink, var(--navy));
 }
 /* Group-KPI card header sits directly in .bills-card (no wrapping .type-kpi-bar
    padding), so it needs its own inset — matches the .sug-header convention
@@ -530,7 +530,7 @@ body.resize-end    { cursor: ew-resize !important; }
 .sug-amt   { font-size: 0.82em; color: var(--text-sub); min-width: 65px; text-align: left; flex-shrink: 0; }
 .sug-acts  { display: flex; gap: 5px; flex-shrink: 0; }
 .sug-rec   { font-size: 0.72em; color: var(--text-muted); }
-.sug-rec b { color: var(--navy); font-weight: 600; }
+.sug-rec b { color: var(--ink, var(--navy)); font-weight: 600; }
 .sug-empty {
   text-align: center; color: var(--text-muted);
   font-size: 0.82em; padding: 18px;
@@ -578,7 +578,7 @@ body.resize-end    { cursor: ew-resize !important; }
   font-weight: 700;
   text-transform: none;
   letter-spacing: 0;
-  color: var(--navy);
+  color: var(--ink, var(--navy));
   display: flex;
   align-items: center;
   gap: 5px;
@@ -591,7 +591,7 @@ body.resize-end    { cursor: ew-resize !important; }
 }
 .stats-kpi { display: flex; flex-direction: column; gap: 2px; }
 .stats-kpi-label { font-size: 0.67em; color: var(--text-muted); letter-spacing: 0; }
-.stats-kpi-val   { font-size: 1.05em; font-weight: 700; color: var(--navy); }
+.stats-kpi-val   { font-size: 1.05em; font-weight: 700; color: var(--ink, var(--navy)); }
 .stats-kpi-val.accent { color: var(--teal); font-size: 1.2em; }
 
 /* ── Mid-month toggle ────────────────────────────────────── */
@@ -609,7 +609,7 @@ body.resize-end    { cursor: ew-resize !important; }
   flex-shrink: 0; white-space: nowrap;
 }
 .mid-toggle:hover:not(.active) { border-color: var(--teal); color: var(--teal); }
-.mid-toggle.active { border-color: var(--teal); background: var(--teal); color: #fff; }
+.mid-toggle.active { border-color: var(--teal); background: var(--teal); color: var(--on-accent, #fff); }
 
 /* ── Modals ──────────────────────────────────────────────── */
 .overlay {
@@ -647,7 +647,7 @@ body.resize-end    { cursor: ew-resize !important; }
   padding: 8px 11px;
   border: 1.5px solid var(--border); border-radius: 8px;
   font-size: 0.88em; font-family: inherit;
-  color: var(--navy); background: var(--white);
+  color: var(--ink, var(--navy)); background: var(--white);
   transition: border-color .12s; outline: none;
 }
 .field input:focus,.field select:focus,.field textarea:focus { border-color: var(--teal); }
@@ -665,7 +665,7 @@ body.resize-end    { cursor: ew-resize !important; }
   font-family: inherit; font-size: 0.83em; font-weight: 600;
   cursor: pointer; color: var(--text-sub); transition: background .12s, color .12s;
 }
-.mode-toggle button.active { background: var(--teal); color: #fff; }
+.mode-toggle button.active { background: var(--teal); color: var(--on-accent, #fff); }
 
 /* tx search */
 .tx-search-wrap { position: relative; }
@@ -772,7 +772,7 @@ body.resize-end    { cursor: ew-resize !important; }
   padding: 7px 14px;
   background: none; border: none;
   text-align: right; font-family: inherit; font-size: 0.83em;
-  cursor: pointer; color: var(--navy);
+  cursor: pointer; color: var(--ink, var(--navy));
   transition: background .1s;
 }
 #bar-menu button:hover { background: var(--teal-light); color: var(--teal); }
@@ -913,6 +913,8 @@ body.resize-end    { cursor: ew-resize !important; }
 .debug-line.warn{color:#ffa94d}
 </style>
 <link rel="stylesheet" href="/design-system.css">
+<script>try{var _p=localStorage.getItem("bd-palette");if(_p)document.documentElement.setAttribute("data-palette",_p)}catch(e){}</script>
+<link rel="stylesheet" href="/palettes.css">
 </head>
 <body>
 
@@ -1100,7 +1102,7 @@ body.resize-end    { cursor: ew-resize !important; }
     <div id="entry-expected-amt-row" style="display:flex;align-items:center;gap:8px;padding:4px 0 6px">
       <label style="font-size:0.82em;color:var(--text-muted);white-space:nowrap;margin:0">סכום משוער:</label>
       <input id="entry-expected-amount" type="number" min="0" step="0.01" placeholder="לא הוגדר"
-             style="width:110px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9em;background:var(--bg-card,#fff);color:var(--navy)">
+             style="width:110px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9em;background:var(--bg-card,#fff);color:var(--ink, var(--navy))">
     </div>
 
     <div class="field-row">
@@ -1162,7 +1164,7 @@ body.resize-end    { cursor: ew-resize !important; }
       <div style="display:flex;align-items:center;gap:8px;padding:4px 0 6px" id="edit-expected-amt-row">
         <label style="font-size:0.82em;color:var(--text-muted);white-space:nowrap;margin:0">סכום משוער:</label>
         <input id="edit-expected-amount" type="number" min="0" step="0.01" placeholder="לא הוגדר"
-               style="width:110px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9em;background:var(--bg-card,#fff);color:var(--navy)">
+               style="width:110px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9em;background:var(--bg-card,#fff);color:var(--ink, var(--navy))">
       </div>
       <div id="edit-attach-search-wrap" class="hidden">
         <!-- Quick-pick: suggestions already loaded on the page -->

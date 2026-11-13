@@ -380,6 +380,51 @@
   }
   initStill();
 
+  /* Colour-palette picker: one button per palette in the side menu (above the footer). The choice is kept in
+   * localStorage ("bd-palette"; absent = the original look) and set as <html data-palette>; the colours live in
+   * palettes.css, and each page's <head> re-applies the saved value before first paint. */
+  var PALETTES = [
+    ['default', 'ברירת מחדל'],
+    ['pistachio-cocoa-red', 'פיסטוק וקקאו'],
+    ['gunmetal-concrete-gold', 'כחול מתכתי וזהב'],
+    ['volcano-cream-indigo', 'כתום ואינדיגו']
+  ];
+  function currentPalette() {
+    var p = document.documentElement.getAttribute('data-palette') || 'default';
+    return PALETTES.some(function (x) { return x[0] === p; }) ? p : 'default';
+  }
+  /* Apply + remember a palette id ('default' clears it); updates every picker button on the page. */
+  function setPalette(id) {
+    var root = document.documentElement;
+    if (id === 'default') root.removeAttribute('data-palette'); else root.setAttribute('data-palette', id);
+    try { if (id === 'default') localStorage.removeItem('bd-palette'); else localStorage.setItem('bd-palette', id); } catch (e) {}
+    var btns = document.querySelectorAll('.pal-opt');
+    for (var i = 0; i < btns.length; i++) btns[i].setAttribute('aria-pressed', String(btns[i].getAttribute('data-pal') === id));
+  }
+  /* Build the picker block and place it before the sidebar footer (or at the end of the sidebar). */
+  function initPalettePicker() {
+    var side = document.getElementById('sidebar') || document.querySelector('.sidebar');
+    if (!side || side.querySelector('.pal-picker')) return;
+    var box = document.createElement('div');
+    box.className = 'pal-picker';
+    box.innerHTML = '<div class="pal-picker-title">ערכת צבעים</div><div class="pal-picker-row" role="group" aria-label="ערכת צבעים"></div>';
+    var row = box.lastChild, cur = currentPalette();
+    PALETTES.forEach(function (p) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pal-opt';
+      b.setAttribute('data-pal', p[0]);
+      b.setAttribute('aria-pressed', String(p[0] === cur));
+      b.innerHTML = '<span class="pal-sw" aria-hidden="true"><i></i><i></i><i></i></span><span class="pal-name"></span>';
+      b.lastChild.textContent = p[1];
+      b.addEventListener('click', function () { setPalette(p[0]); });
+      row.appendChild(b);
+    });
+    var foot = side.querySelector('.sidebar-footer');
+    if (foot) side.insertBefore(box, foot); else side.appendChild(box);
+  }
+  initPalettePicker();
+
   var boxes = document.querySelectorAll('.sidebar-scroll[data-nav]');
   for (var i = 0; i < boxes.length; i++) render(boxes[i]);
 })();

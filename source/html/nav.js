@@ -176,6 +176,9 @@
       }
       box.appendChild(el);
     });
+    var gearSep = document.createElement('div');            // settings stand apart from the page links
+    gearSep.className = 'nav-sep';
+    box.appendChild(gearSep);
     var gear = document.createElement('button');            // opens the settings sub-menu in place of the links
     gear.type = 'button';
     gear.className = 'nav-item nav-settings';

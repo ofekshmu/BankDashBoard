@@ -176,6 +176,13 @@
       }
       box.appendChild(el);
     });
+    var gear = document.createElement('button');            // opens the settings sub-menu in place of the links
+    gear.type = 'button';
+    gear.className = 'nav-item nav-settings';
+    gear.textContent = 'הגדרות';
+    gear.addEventListener('click', function () { showSettings(box); });
+    stagger(gear);
+    box.appendChild(gear);
     var sep = document.createElement('div');
     sep.className = 'nav-sep';
     box.appendChild(sep);
@@ -464,14 +471,13 @@
     for (var i = 0; i < btns.length; i++) btns[i].setAttribute('aria-pressed', String(btns[i].getAttribute('data-pal') === id));
     if (window.Chart) location.reload();      // chart colours are set in JS: redraw the page with the new palette
   }
-  /* Build the picker block and place it before the sidebar footer (or at the end of the sidebar). */
-  function initPalettePicker() {
-    var side = document.getElementById('sidebar') || document.querySelector('.sidebar');
-    if (!side || side.querySelector('.pal-picker')) return;
-    var box = document.createElement('div');
-    box.className = 'pal-picker';
-    box.innerHTML = '<div class="pal-picker-title">ערכת צבעים</div><div class="pal-picker-row" role="group" aria-label="ערכת צבעים"></div>';
-    var row = box.lastChild, cur = currentPalette();
+  /* Build the palette buttons (one per palette, with its 60/30/10 swatch) into `parent`. */
+  function buildPalettePicker(parent) {
+    var row = document.createElement('div');
+    row.className = 'pal-picker-row';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', 'ערכת צבעים');
+    var cur = currentPalette();
     PALETTES.forEach(function (p) {
       var b = document.createElement('button');
       b.type = 'button';
@@ -483,10 +489,53 @@
       b.addEventListener('click', function () { setPalette(p[0]); });
       row.appendChild(b);
     });
-    var foot = side.querySelector('.sidebar-footer');
-    if (foot) side.insertBefore(box, foot); else side.appendChild(box);
+    parent.appendChild(row);
   }
-  initPalettePicker();
+
+  /* ── Settings sub-menus ─────────────────────────────────────────────────────────────────────────────
+   * "הגדרות" in the side menu swaps the page links for a settings list (the links come back with "חזור").
+   * Every sub-menu has a back button as its first row. To add a setting: one entry in SETTINGS —
+   * [id, label, builder(parent)] — the builder fills that setting's own sub-menu. */
+  var SETTINGS = [
+    ['palettes', 'ערכות צבעים', buildPalettePicker]
+  ];
+  /* Replace the menu content with a sub-menu: back button, title, then whatever build(box) adds. */
+  function subMenu(box, title, onBack, build) {
+    box.textContent = '';
+    var order = 0;
+    function put(el) { el.style.setProperty('--i', order++); box.appendChild(el); return el; }
+    var back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'nav-item nav-back';
+    back.textContent = '→ חזור';
+    back.addEventListener('click', onBack);
+    put(back);
+    var h = document.createElement('div');
+    h.className = 'nav-view-title';
+    h.textContent = title;
+    put(h);
+    build(put);
+    box.scrollTop = 0;
+  }
+  function showSettings(box) {
+    subMenu(box, 'הגדרות', function () { render(box); }, function (put) {
+      SETTINGS.forEach(function (st) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'nav-item nav-setting-link';
+        b.textContent = st[1];
+        b.addEventListener('click', function () {
+          subMenu(box, st[1], function () { showSettings(box); }, function (put2) {
+            var holder = document.createElement('div');
+            holder.className = 'pal-picker';
+            st[2](holder);
+            put2(holder);
+          });
+        });
+        put(b);
+      });
+    });
+  }
 
   var boxes = document.querySelectorAll('.sidebar-scroll[data-nav]');
   for (var i = 0; i < boxes.length; i++) render(boxes[i]);

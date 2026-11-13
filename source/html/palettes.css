@@ -123,6 +123,68 @@ html[data-palette="volcano-cream-indigo"] .sidebar-header { background: var(--br
 html[data-palette="volcano-cream-indigo"] .sidebar-header .sidebar-app-name,
 html[data-palette="volcano-cream-indigo"] .sidebar-header .sidebar-close-btn { color: var(--on-brand); }
 
+/* ---- 4. Cornflower / Porcelain / Magenta (60 / 30 / 10) ----
+   Source (second reel): Cornflower Blue 60% main, Porcelain White 30% second, Magenta Pulse 10% accent.
+   VERIFIED: #E5007E Magenta Pulse. DERIVED (hex not readable in the source): Cornflower Blue #8FA3DF, Porcelain White #F4F2EF. */
+html[data-palette="cornflower-porcelain-magenta"] {
+  --page-bg: #8FA3DF;            /* main: Cornflower Blue (derived) */
+  --bg: #EAE7E3;                 /* helper: inset fill */
+  --white: #F4F2EF;              /* secondary: Porcelain White (derived) — cards, sidebar */
+  --bg-white: #F4F2EF;
+  --border: #D9D5CF;             /* helper */
+  --border-focus: #E5007E;
+  --ink: #1B2150;                /* helper: deep navy text (6.14:1 on the canvas) */
+  --navy: #1B2150;
+  --text-sub: #2A3068;
+  --text-muted: #5A5F85;
+  --muted: #5A5F85;
+  --teal: #E5007E;               /* accent: Magenta Pulse (verified) */
+  --teal-dark: #B80066;          /* helper */
+  --teal-light: rgba(229,0,126,.10);
+  --teal-glow: rgba(229,0,126,.30);
+  --amber: #E5007E;
+  --on-accent: #FFFFFF;          /* white on magenta is 4.53:1 */
+  --c-neg: #C8006E; --c-pos: #3A52B8; --c-alt: #5A5F85;   /* #C8006E = magenta darkened for text on porcelain */
+  --c-neg-bg: color-mix(in srgb, #E5007E 10%, transparent);
+  --c-pos-bg: color-mix(in srgb, #3A52B8 10%, transparent);
+  --c-alt-bg: color-mix(in srgb, #5A5F85 10%, transparent);
+  --red: var(--c-neg); --green: var(--c-pos);
+  --shadow-teal: 0 4px 16px rgba(229,0,126,.22);
+  --sq-grad: linear-gradient(135deg, #FF4FA8, #E5007E 55%, #B80066);
+  --sq-glow: rgba(229,0,126,.35);
+}
+
+/* ---- 5. Lavender / Indigo / Tangerine (60 / 30 / 10) ----
+   Source (second reel): Lavender Fog 60% main, Deep Indigo 30% second, Tangerine Glow 10% accent.
+   VERIFIED: #FF8A1F Tangerine Glow. DERIVED (hex not readable): Lavender Fog #DAD5E8, Deep Indigo #2B2870. */
+html[data-palette="lavender-indigo-tangerine"] {
+  --page-bg: #DAD5E8;            /* main: Lavender Fog (derived) */
+  --bg: #E6E2F0;                 /* helper: inset fill */
+  --white: #EEEBF5;              /* helper: card surface (a lighter Lavender Fog) */
+  --bg-white: #EEEBF5;
+  --border: #C9C3DC;             /* helper */
+  --border-focus: #FF8A1F;
+  --ink: #2B2870;                /* secondary: Deep Indigo (derived) — text and dark fills */
+  --navy: #2B2870;
+  --text-sub: #3C3984;
+  --text-muted: #5E5A8C;
+  --muted: #5E5A8C;
+  --teal: #FF8A1F;               /* accent: Tangerine Glow (verified) */
+  --teal-dark: #E06F00;          /* helper */
+  --teal-light: rgba(255,138,31,.14);
+  --teal-glow: rgba(255,138,31,.32);
+  --amber: #FF8A1F;
+  --on-accent: #2B2870;          /* Deep Indigo on tangerine is 5.43:1 (white would be 2.36:1) */
+  --c-neg: #A84700; --c-pos: #2B2870; --c-alt: #5E5A8C;   /* #A84700 = tangerine darkened for text on the cards */
+  --c-neg-bg: color-mix(in srgb, #FF8A1F 16%, transparent);
+  --c-pos-bg: color-mix(in srgb, #2B2870 8%, transparent);
+  --c-alt-bg: color-mix(in srgb, #5E5A8C 10%, transparent);
+  --red: var(--c-neg); --green: var(--c-pos);
+  --shadow-teal: 0 4px 16px rgba(255,138,31,.25);
+  --sq-grad: linear-gradient(135deg, #FFB066, #FF8A1F 55%, #E06F00);
+  --sq-glow: rgba(255,138,31,.35);
+}
+
 /* ---- Shared: the page canvas follows --page-bg in every palette ---- */
 html[data-palette]:not([data-palette="default"]),
 html[data-palette]:not([data-palette="default"]) body {
@@ -165,6 +227,8 @@ html[data-palette="gunmetal-concrete-gold"] textarea {
 .pal-opt[data-pal="default"]               { --s1:#f7f6f2; --s2:#1e2a4a; --s3:#1e9d8b; }
 .pal-opt[data-pal="pistachio-cocoa-red"]   { --s1:#DCE8BE; --s2:#2E1B14; --s3:#C8173F; }
 .pal-opt[data-pal="gunmetal-concrete-gold"]{ --s1:#2C3440; --s2:#B4ADA2; --s3:#FFB800; }
+.pal-opt[data-pal="cornflower-porcelain-magenta"] { --s1:#8FA3DF; --s2:#F4F2EF; --s3:#E5007E; }
+.pal-opt[data-pal="lavender-indigo-tangerine"]  { --s1:#DAD5E8; --s2:#2B2870; --s3:#FF8A1F; }
 .pal-opt[data-pal="volcano-cream-indigo"]  { --s1:#EFDDBF; --s2:#E2551F; --s3:#3D2BFF; --f1:70; --f2:20; --f3:10; }
 
 /* Current page in the side menu: the base pages grey it out (#b8c0d0, unreadable on the tinted surfaces) */

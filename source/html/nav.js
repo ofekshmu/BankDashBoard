@@ -400,7 +400,9 @@
   var RAMPS = {
     'pistachio-cocoa-red':    ['#C8173F', '#2E1B14', '#E0788F', '#6A5646', '#EFB3C0', '#9A8A7A', '#A41234', '#B5BFA0'],
     'gunmetal-concrete-gold': ['#FFB800', '#B4ADA2', '#FFD666', '#8C867D', '#FFE6A3', '#D9D4CC', '#E0A000', '#5B6676'],
-    'volcano-cream-indigo':   ['#3D2BFF', '#E2551F', '#8F85FF', '#F29A74', '#1E1410', '#B9B2FF', '#6B5846', '#2F1FD0']
+    'volcano-cream-indigo':   ['#3D2BFF', '#E2551F', '#8F85FF', '#F29A74', '#1E1410', '#B9B2FF', '#6B5846', '#2F1FD0'],
+    'cornflower-porcelain-magenta': ['#E5007E', '#3A52B8', '#FF7FBF', '#1B2150', '#8FA3DF', '#B80066', '#5A5F85', '#C9D2F0'],
+    'lavender-indigo-tangerine':    ['#FF8A1F', '#2B2870', '#FFB877', '#5E5A8C', '#E06F00', '#9C98C4', '#A84700', '#C9C3DC']
   };
   function activeRamp() { return RAMPS[document.documentElement.getAttribute('data-palette')] || null; }
   window.bdCat = function (colors) {
@@ -459,7 +461,9 @@
     ['default', 'ברירת מחדל'],
     ['pistachio-cocoa-red', 'פיסטוק וקקאו'],
     ['gunmetal-concrete-gold', 'כחול מתכתי וזהב'],
-    ['volcano-cream-indigo', 'כתום ואינדיגו']
+    ['volcano-cream-indigo', 'כתום ואינדיגו'],
+    ['cornflower-porcelain-magenta', 'כחול ומג׳נטה'],
+    ['lavender-indigo-tangerine', 'לבנדר ותפוז']
   ];
   function currentPalette() {
     var p = document.documentElement.getAttribute('data-palette') || 'default';

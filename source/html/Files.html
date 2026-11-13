@@ -10,7 +10,7 @@
 :root {
   --teal:       #1e9d8b;
   --teal-light: #e8f7f5;
-  --teal-glow:  rgba(30,157,139,0.25);
+  --teal-glow:  color-mix(in srgb, var(--teal) 25%, transparent);
   --navy:       #1e2a4a;
   --bg:         #f4f6f9;
   --white:      #ffffff;
@@ -73,7 +73,7 @@ body {
   border-radius: 6px;
   transition: background .12s, color .12s;
 }
-.sidebar-close-btn:hover { background: #e8f7f5; color: var(--teal); }
+.sidebar-close-btn:hover { background: var(--teal-light); color: var(--teal); }
 .nav-overlay {
   position: fixed; inset: 0;
   background: rgba(15,22,45,.26);
@@ -446,7 +446,7 @@ body {
 }
 .db-search:focus {
   border-color: var(--teal);
-  box-shadow: 0 0 0 3px rgba(30,157,139,.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 10%, transparent);
 }
 .db-result-count { font-size: .78em; color: var(--text-muted); white-space: nowrap; }
 
@@ -546,7 +546,7 @@ body {
 .lf-spinner.done  { animation: none; border-radius: 50%; background: #2ecc71; }
 .lf-spinner.error { animation: none; border-radius: 50%; background: #f56565; }
 .lf-title {
-  font-size: 0.8em; font-weight: 600; color: #1e9d8b;
+  font-size: 0.8em; font-weight: 600; color: var(--teal);
   text-shadow: 0 1px 6px rgba(255,255,255,0.9), 0 0 2px rgba(255,255,255,1);
 }
 .lf-feed {
@@ -668,8 +668,8 @@ body {
 /* Regen-style floating refresh button, matching the organizer page's
    recalculate FAB. Stacked above the debug FAB so they don't collide. */
 .files-regen-fab{position:fixed;bottom:22px;right:18px;z-index:500}
-.files-regen-btn{height:52px;padding:0 22px;background:var(--teal);color:var(--on-accent, #fff);border:none;border-radius:26px;font-size:.85em;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(30,157,139,.45);white-space:nowrap;transition:box-shadow .2s,opacity .2s;font-family:inherit}
-.files-regen-btn:hover{box-shadow:0 6px 24px rgba(30,157,139,.65)}
+.files-regen-btn{height:52px;padding:0 22px;background:var(--teal);color:var(--on-accent, #fff);border:none;border-radius:26px;font-size:.85em;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px color-mix(in srgb, var(--teal) 45%, transparent);white-space:nowrap;transition:box-shadow .2s,opacity .2s;font-family:inherit}
+.files-regen-btn:hover{box-shadow:0 6px 24px color-mix(in srgb, var(--teal) 65%, transparent)}
 .files-regen-btn:disabled{opacity:.65;cursor:wait}
 .files-regen-icon{font-size:1.3em;line-height:1;display:flex;align-items:center}
 @media(max-width:768px){.files-regen-fab{bottom:14px;right:14px}.files-regen-btn{width:52px;padding:0;border-radius:50%;justify-content:center}.files-regen-label{display:none}}

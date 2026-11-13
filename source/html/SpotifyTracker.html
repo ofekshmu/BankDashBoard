@@ -8,8 +8,8 @@
 :root {
   --teal:       #1e9d8b;
   --teal-light: #e8f7f5;
-  --teal-dark:  #178878;
-  --teal-glow:  rgba(30,157,139,.28);
+  --teal-dark:  color-mix(in srgb, var(--teal) 90%, black);
+  --teal-glow:  color-mix(in srgb, var(--teal) 28%, transparent);
   --navy:       #1e2a4a;
   --bg:         #f4f6f9;
   --white:      #ffffff;
@@ -203,7 +203,7 @@ body {
 }
 .tab-badge.owes { background: rgba(231,76,60,.12); color: var(--red); }
 .tab-badge.even { background: rgba(46,204,113,.12); color: #1a7a40; }
-.tab-badge.ahead { background: rgba(30,157,139,.12); color: var(--teal); }
+.tab-badge.ahead { background: color-mix(in srgb, var(--teal) 12%, transparent); color: var(--teal); }
 
 /* ── Tab panels ───────────────────────────────────────────── */
 .tab-panel { display: none; padding: 20px; }
@@ -221,7 +221,7 @@ body {
   display: flex; flex-direction: column; gap: 8px;
   cursor: pointer; transition: box-shadow .18s, transform .18s;
 }
-.member-card:hover { box-shadow: 0 4px 20px rgba(30,157,139,.18); transform: translateY(-2px); }
+.member-card:hover { box-shadow: 0 4px 20px color-mix(in srgb, var(--teal) 18%, transparent); transform: translateY(-2px); }
 .member-card-owner { cursor: default; }
 .member-card-owner:hover { box-shadow: var(--shadow-sm); transform: none; }
 @keyframes cardPress {
@@ -286,7 +286,7 @@ body {
 }
 .balance-card.owes { background: rgba(231,76,60,.1); }
 .balance-card.even { background: rgba(46,204,113,.1); }
-.balance-card.ahead { background: rgba(30,157,139,.1); }
+.balance-card.ahead { background: color-mix(in srgb, var(--teal) 10%, transparent); }
 .balance-card-label { font-size: .72em; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
 .balance-card-amount {
   font-size: 1.6em; font-weight: 700;
@@ -382,7 +382,7 @@ body {
   outline: none; font-family: inherit; direction: rtl;
   transition: border-color .18s, box-shadow .18s;
 }
-.field-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(30,157,139,.12); }
+.field-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 12%, transparent); }
 input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appearance: none; }
 .field-checkbox-row {
   display: flex; align-items: center; gap: 8px;

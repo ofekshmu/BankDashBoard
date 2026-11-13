@@ -9,7 +9,7 @@
 :root {
   --teal:       #1e9d8b;
   --teal-light: #e8f7f5;
-  --teal-glow:  rgba(30,157,139,.28);
+  --teal-glow:  color-mix(in srgb, var(--teal) 28%, transparent);
   --navy:       #1e2a4a;
   --bg:         #f4f6f9;
   --white:      #ffffff;
@@ -221,7 +221,7 @@ body {
 /* ── Drag-to-zoom selection overlay ─────────────────────── */
 .zoom-select {
   position: absolute; pointer-events: none; z-index: 10;
-  background: rgba(30,157,139,0.12);
+  background: color-mix(in srgb, var(--teal) 12%, transparent);
   border: 1.5px solid var(--teal);
   border-radius: 3px; display: none;
 }

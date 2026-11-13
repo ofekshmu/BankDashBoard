@@ -8,8 +8,8 @@
 :root {
   --teal:       #1e9d8b;
   --teal-light: #e8f7f5;
-  --teal-dark:  #178878;
-  --teal-glow:  rgba(30,157,139,.28);
+  --teal-dark:  color-mix(in srgb, var(--teal) 90%, black);
+  --teal-glow:  color-mix(in srgb, var(--teal) 28%, transparent);
   --navy:       #1e2a4a;
   --bg:         #f4f6f9;
   --white:      #ffffff;
@@ -143,7 +143,7 @@ body {
 .tb-add {
   height: 42px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--teal); color: var(--on-accent, #fff);
   font: inherit; font-size: .82em; font-weight: 700; white-space: nowrap; cursor: pointer;
-  box-shadow: 0 2px 10px rgba(30,157,139,.25); transition: background .13s;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--teal) 25%, transparent); transition: background .13s;
 }
 .tb-add:hover { background: var(--teal-dark); }
 .tb-add:focus-visible { outline: 2px solid var(--teal-dark); outline-offset: 2px; }
@@ -208,7 +208,7 @@ body {
   outline: none; font-family: inherit; direction: rtl;
   transition: border-color .18s, box-shadow .18s;
 }
-.field-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(30,157,139,.12); }
+.field-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 12%, transparent); }
 input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appearance: none; }
 .debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:#1e2a4a;color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
 .debug-fab:hover{filter:brightness(1.2)}
@@ -241,10 +241,10 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 button.pt-stat { border: 1.5px solid transparent; font: inherit; font-size: .85em; cursor: pointer; transition: border-color .15s, background .15s; }
 button.pt-stat:hover { border-color: var(--teal); }
 button.pt-stat:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
-.pt-stat.due.glow { border-color: rgba(30,157,139,.55); animation: pt-glow 1.8s ease-in-out infinite; }
+.pt-stat.due.glow { border-color: color-mix(in srgb, var(--teal) 55%, transparent); animation: pt-glow 1.8s ease-in-out infinite; }
 .pt-stat.due.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal); font-weight: 700; }
-@keyframes pt-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(30,157,139,.0); } 50% { box-shadow: 0 0 0 5px rgba(30,157,139,.22), 0 0 14px rgba(30,157,139,.35); } }
-@media (prefers-reduced-motion: reduce) { .pt-stat.due.glow { animation: none; box-shadow: 0 0 0 3px rgba(30,157,139,.25); } }
+@keyframes pt-glow { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--teal) 0%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--teal) 22%, transparent), 0 0 14px color-mix(in srgb, var(--teal) 35%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .pt-stat.due.glow { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 25%, transparent); } }
 .pt-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; font-size: .74em; color: var(--text-muted);
   margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
 .pt-legend[hidden] { display: none; }
@@ -299,7 +299,7 @@ button.pt-stat:focus-visible { outline: 2px solid var(--teal); outline-offset: 2
 .pt-drop.none path { fill: none; stroke: #c9ced8; }
 .pt-tips { display: flex; flex-direction: column; gap: 6px; }
 .pt-tips .pt-sugg { padding: 7px 10px; font-size: .8em; }
-.pt-fab { position: fixed; bottom: 22px; left: 18px; z-index: 900; width: 52px; height: 52px; border-radius: 50%; border: none; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--teal); box-shadow: 0 6px 18px rgba(30,157,139,.35); cursor: pointer; transition: background .2s, box-shadow .2s, transform .15s; }
+.pt-fab { position: fixed; bottom: 22px; left: 18px; z-index: 900; width: 52px; height: 52px; border-radius: 50%; border: none; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--teal); box-shadow: 0 6px 18px color-mix(in srgb, var(--teal) 35%, transparent); cursor: pointer; transition: background .2s, box-shadow .2s, transform .15s; }
 .pt-fab:hover { transform: translateY(-2px); }
 .pt-fab:active { transform: scale(.94); }
 .pt-fab:focus-visible { outline: 3px solid var(--teal-glow); outline-offset: 3px; }

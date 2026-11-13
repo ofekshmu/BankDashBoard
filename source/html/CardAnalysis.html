@@ -9,7 +9,7 @@
 :root {
   --teal:       #1e9d8b;
   --teal-light: #e8f7f5;
-  --teal-dark:  #178878;
+  --teal-dark:  color-mix(in srgb, var(--teal) 90%, black);
   --navy:       #1e2a4a;
   --bg:         #f4f6f9;
   --white:      #ffffff;
@@ -169,7 +169,7 @@ body {
 .ca-hero-card-name{font-weight:700;font-size:1.05em;color:var(--ink, var(--navy))}
 .ca-hero-card-sub{font-size:.8em;color:var(--text-muted);margin-top:2px;margin-right:20px}
 .ca-status-badge{font-size:.72em;font-weight:700;border-radius:12px;padding:3px 11px;white-space:nowrap;flex-shrink:0}
-.ca-status-badge.verified{background:#e8f7f5;color:var(--teal)}
+.ca-status-badge.verified{background:var(--teal-light);color:var(--teal)}
 .ca-status-badge.not_verified{background:#fff3e0;color:var(--amber)}
 .ca-status-badge.not_found{background:#eceff3;color:#6b7280}
 .ca-status-badge.open{background:#eaf2fb;color:#2f6fb0}

@@ -6,9 +6,9 @@
 <title>חיפוש עסקאות</title>
 <style>
 :root {
-  --teal:#1e9d8b; --teal-light:#e8f7f5; --teal-dark:#178878;
+  --teal:#1e9d8b; --teal-light:#e8f7f5; --teal-dark:color-mix(in srgb, var(--teal) 90%, black);
   --navy:#1e2a4a; --bg:#f4f6f9; --white:#fff;
-  --border:#eef0f6; --border-focus:#1e9d8b;
+  --border:#eef0f6; --border-focus:var(--teal);
   --text-sub:#555; --text-muted:#888;
   --red:#e74c3c; --green:#2ecc71;
   --shadow-sm:0 2px 10px rgba(0,0,0,.06);
@@ -55,11 +55,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
 .search-bar{display:flex;gap:10px;align-items:stretch;margin-bottom:0}
 .search-bar-keyword{flex:1;position:relative}
 .search-bar-keyword input{width:100%;padding:12px 16px 12px 44px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.95em;color:var(--ink, var(--navy));background:var(--white);outline:none;transition:border-color .18s,box-shadow .18s;font-family:inherit;direction:rtl}
-.search-bar-keyword input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(30,157,139,.12)}
+.search-bar-keyword input:focus{border-color:var(--teal);box-shadow:0 0 0 3px color-mix(in srgb, var(--teal) 12%, transparent)}
 .search-bar-keyword .search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none}
 .search-bar-cat{flex:0 0 190px}
 .search-bar-cat select{width:100%;height:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.9em;color:var(--ink, var(--navy));background:var(--white);outline:none;cursor:pointer;transition:border-color .18s;font-family:inherit;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left 12px center}
-.search-bar-cat select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(30,157,139,.12)}
+.search-bar-cat select:focus{border-color:var(--teal);box-shadow:0 0 0 3px color-mix(in srgb, var(--teal) 12%, transparent)}
 .btn-search{background:var(--teal);color:var(--on-accent, #fff);border:none;border-radius:var(--radius-sm);padding:12px 32px;font-size:.95em;font-weight:600;cursor:pointer;transition:background .15s,transform .1s;font-family:inherit;white-space:nowrap;display:flex;align-items:center;gap:7px}
 .btn-search:hover{background:var(--teal-dark)}
 .btn-search:active{transform:scale(.98)}
@@ -80,7 +80,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
 @media(max-width:700px){.adv-inner{grid-template-columns:1fr}}
 .field-label{font-size:.72em;font-weight:700;color:var(--text-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
 .field-input{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.88em;color:var(--ink, var(--navy));background:var(--white);outline:none;transition:border-color .18s,box-shadow .18s;font-family:inherit;direction:rtl;box-sizing:border-box;height:38px}
-.field-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(30,157,139,.12)}
+.field-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px color-mix(in srgb, var(--teal) 12%, transparent)}
 input[type="date"].field-input{padding:0 10px;appearance:none;-webkit-appearance:none}
 .amount-row{display:flex;gap:8px;align-items:center}
 .amount-sep{color:var(--text-muted);font-size:.85em;flex-shrink:0}
@@ -90,7 +90,7 @@ input[type="date"].field-input{padding:0 10px;appearance:none;-webkit-appearance
   font-size:.88em;color:var(--ink, var(--navy));background:var(--white);cursor:pointer;
   display:flex;align-items:center;gap:7px;transition:border-color .18s,box-shadow .18s;
   font-family:inherit}
-.drp-trigger:focus,.drp-trigger.open{border-color:var(--teal);outline:none;box-shadow:0 0 0 3px rgba(30,157,139,.12)}
+.drp-trigger:focus,.drp-trigger.open{border-color:var(--teal);outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--teal) 12%, transparent)}
 .drp-lbl{flex:1;text-align:right;color:var(--text-muted)}
 .drp-lbl.set{color:var(--ink, var(--navy));font-weight:500}
 .drp-clr-btn{background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.9em;
@@ -118,9 +118,9 @@ input[type="date"].field-input{padding:0 10px;appearance:none;-webkit-appearance
   font-size:.82em;font-weight:500;color:var(--ink, var(--navy));transition:background .1s,color .1s}
 .drp-day:not(.range-start):not(.range-end):not(.in-range):hover .drp-n{background:var(--teal-light);color:var(--teal)}
 /* Range fill */
-.drp-day.in-range   .drp-bg{left:0;right:0;background:rgba(30,157,139,.13)}
-.drp-day.range-start .drp-bg{left:50%;right:0;background:rgba(30,157,139,.13)}
-.drp-day.range-end   .drp-bg{left:0;right:50%;background:rgba(30,157,139,.13)}
+.drp-day.in-range   .drp-bg{left:0;right:0;background:color-mix(in srgb, var(--teal) 13%, transparent)}
+.drp-day.range-start .drp-bg{left:50%;right:0;background:color-mix(in srgb, var(--teal) 13%, transparent)}
+.drp-day.range-end   .drp-bg{left:0;right:50%;background:color-mix(in srgb, var(--teal) 13%, transparent)}
 .drp-day.range-start.range-end .drp-bg{display:none}
 /* Selected circles */
 .drp-day.range-start .drp-n,.drp-day.range-end .drp-n{background:var(--teal);color:var(--on-accent, #fff);font-weight:700}
@@ -237,7 +237,7 @@ input[type="date"].field-input{padding:0 10px;appearance:none;-webkit-appearance
 .s-revert-amt{font-size:.86em;font-weight:700;color:var(--ink, var(--navy));min-width:70px}
 .s-revert-desc{font-size:.8em;color:var(--text-sub);flex:1}
 .s-toast{position:fixed;bottom:24px;right:24px;background:#2e7d32;color:#fff;border-radius:10px;padding:11px 20px;font-size:.85em;font-weight:600;z-index:9999;box-shadow:0 4px 18px rgba(0,0,0,.15);animation:_pageIn .2s ease}
-@keyframes lockGlow{0%{box-shadow:0 0 0 0 rgba(30,157,139,.65)}60%{box-shadow:0 0 0 9px rgba(30,157,139,0)}100%{box-shadow:0 0 0 0 rgba(30,157,139,0)}}
+@keyframes lockGlow{0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--teal) 65%, transparent)}60%{box-shadow:0 0 0 9px color-mix(in srgb, var(--teal) 0%, transparent)}100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--teal) 0%, transparent)}}
 @keyframes lockFail{0%{box-shadow:0 0 0 0 rgba(231,76,60,.7)}60%{box-shadow:0 0 0 9px rgba(231,76,60,0)}100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}}
 .split-locked{border-color:var(--teal) !important;background:var(--teal-light) !important}
 .split-lock-flash{animation:lockGlow .55s ease-out forwards}

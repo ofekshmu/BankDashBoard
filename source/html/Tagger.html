@@ -10,7 +10,7 @@
 :root {
   --teal:       #1e9d8b;
   --teal-light: #e8f7f5;
-  --teal-glow:  rgba(30,157,139,0.25);
+  --teal-glow:  color-mix(in srgb, var(--teal) 25%, transparent);
   --navy:       #1e2a4a;
   --bg:         #f4f6f9;
   --white:      #ffffff;
@@ -710,7 +710,7 @@ body {
 .s-revert-num{font-size:.76em;color:#aaa;min-width:14px}
 .s-revert-amt{font-size:.86em;font-weight:700;color:var(--ink, var(--navy));min-width:70px}
 .s-revert-desc{font-size:.8em;color:var(--text-sub);flex:1}
-@keyframes lockGlow{0%{box-shadow:0 0 0 0 rgba(30,157,139,.65)}60%{box-shadow:0 0 0 9px rgba(30,157,139,0)}100%{box-shadow:0 0 0 0 rgba(30,157,139,0)}}
+@keyframes lockGlow{0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--teal) 65%, transparent)}60%{box-shadow:0 0 0 9px color-mix(in srgb, var(--teal) 0%, transparent)}100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--teal) 0%, transparent)}}
 @keyframes lockFail{0%{box-shadow:0 0 0 0 rgba(231,76,60,.7)}60%{box-shadow:0 0 0 9px rgba(231,76,60,0)}100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}}
 .split-locked{border-color:var(--teal) !important;background:var(--teal-light) !important}
 .split-lock-flash{animation:lockGlow .55s ease-out forwards}

@@ -5,7 +5,7 @@
 <title>ארגונית קבצים</title>
 <style>
 :root{
-  --navy:#1e2a4a;--teal:#1e9d8b;--teal-light:#e8f7f5;--teal-glow:rgba(30,157,139,.30);
+  --navy:#1e2a4a;--teal:#1e9d8b;--teal-light:#e8f7f5;--teal-glow:color-mix(in srgb, var(--teal) 30%, transparent);
   --white:#fff;--bg:#f4f6f9;--border:#eef0f6;--text-muted:#9aa3bb;
   --radius:14px;--radius-sm:8px;
 }
@@ -29,8 +29,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--in
 .app-version-badge{margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none}
 .nav-item{display:flex;align-items:center;padding:10px 20px;text-decoration:none;color:#555;font-size:.875em;font-weight:500;transition:background .1s,color .1s;cursor:pointer;border:none;background:none;width:100%;text-align:right;position:relative;letter-spacing:.1px}
 .nav-item::before{content:'';position:absolute;right:0;top:22%;height:56%;width:3px;border-radius:3px 0 0 3px;background:transparent;transition:background .1s}
-.nav-item:hover{background:#e8f7f5;color:#1e9d8b}
-.nav-item:hover::before{background:#1e9d8b}
+.nav-item:hover{background:var(--teal-light);color:var(--teal)}
+.nav-item:hover::before{background:var(--teal)}
 .nav-item.active{color:#b8c0d0;cursor:default;pointer-events:none}
 .nav-sep{height:1px;background:#eef0f6;margin:8px 16px}
 .main{margin-right:0;flex:1;padding:72px 32px 60px;min-width:0;overflow-x:hidden}
@@ -38,8 +38,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--in
 .page-header h1{font-size:1.7em;font-weight:700}
 .generated-label{font-size:.72em;color:var(--text-muted);white-space:nowrap}
 .org-regen-fab{position:fixed;bottom:22px;right:18px;z-index:500}
-.org-regen-btn{height:52px;padding:0 22px;background:var(--teal);color:var(--on-accent, #fff);border:none;border-radius:26px;font-size:.85em;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(30,157,139,.45);white-space:nowrap;transition:box-shadow .2s,opacity .2s}
-.org-regen-btn:hover{box-shadow:0 6px 24px rgba(30,157,139,.65)}
+.org-regen-btn{height:52px;padding:0 22px;background:var(--teal);color:var(--on-accent, #fff);border:none;border-radius:26px;font-size:.85em;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px color-mix(in srgb, var(--teal) 45%, transparent);white-space:nowrap;transition:box-shadow .2s,opacity .2s}
+.org-regen-btn:hover{box-shadow:0 6px 24px color-mix(in srgb, var(--teal) 65%, transparent)}
 .org-regen-btn:disabled{opacity:.65;cursor:wait}
 .org-regen-icon{font-size:1.6em;line-height:1;display:flex;align-items:center}
 .org-regen-btn.running .org-regen-icon{display:none}

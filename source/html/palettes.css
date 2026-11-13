@@ -11,7 +11,8 @@
      Pale Pistachio #DCE8BE, Bitter Cocoa #2E1B14, Lipstick Red #C8173F,
      Warm Concrete #B4ADA2, Toasted Cream #FBF3E4.
    Other derived helpers (card/inset tints, borders, hover shades) are marked "helper".
-   Brand colour != status colour: --red/--green/--amber (status) are NOT re-assigned here.
+   Each palette uses ONLY its three colours (plus neutral tints of them). --amber (warnings/highlights) follows
+   the palette; --red/--green (income vs expense, errors) are still the status colours — see the note in the PR/commit.
 
    Tokens: --page-bg page canvas | --white cards & sidebar | --bg inset fills inside cards
            --teal(+-light/-dark/-glow) = ACCENT (primary action / selection / links)
@@ -32,6 +33,7 @@ html[data-palette="pistachio-cocoa-red"] {
   --text-sub: #4A3629;
   --text-muted: #6A5646;
   --muted: #6A5646;
+  --amber: #C8173F;              /* warning/highlight: no foreign hue — the palette's accent */
   --teal: #C8173F;               /* accent: Lipstick Red (derived) */
   --teal-dark: #A41234;          /* helper */
   --teal-light: rgba(200,23,63,.10);
@@ -56,6 +58,7 @@ html[data-palette="gunmetal-concrete-gold"] {
   --text-sub: #CFCAC1;
   --text-muted: #B4ADA2;         /* secondary: Warm Concrete (derived) */
   --muted: #B4ADA2;
+  --amber: #FFB800;
   --teal: #FFB800;               /* accent: Saffron Gold (verified) */
   --teal-dark: #E0A000;          /* helper */
   --teal-light: rgba(255,184,0,.14);
@@ -85,6 +88,7 @@ html[data-palette="volcano-cream-indigo"] {
   --text-sub: #4A3A2C;
   --text-muted: #6B5846;
   --muted: #6B5846;
+  --amber: #E2551F;              /* warning/highlight: the palette's orange */
   --teal: #3D2BFF;               /* accent: Electric Indigo (verified) */
   --teal-dark: #2F1FD0;          /* helper */
   --teal-light: rgba(61,43,255,.10);

@@ -90,7 +90,7 @@ td.amount,
 
 /* --- Background warm-up --- */
 body {
-  background-color: var(--bg) !important;
+  background-color: var(--page-bg, var(--bg)) !important;
 }
 
 /* Bottom nav removed — sidebar (☰) is the sole nav on all viewports */

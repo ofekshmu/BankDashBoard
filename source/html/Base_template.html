@@ -592,6 +592,63 @@ body {
   background: rgba(255,255,255,0.55); backdrop-filter: blur(3px);
   align-items: center; justify-content: center;
 }
+/* ── Full-page loader: "Block Build" progress bar + analysis stage timeline ──────────
+   One indicator for the whole page while a month loads or is analysed (replaces the empty cards, the
+   top bar, the FAB progress and the floating log while it is up). Dark loading-screen background, the
+   palette's gradient on the fill, green checks for finished stages. See _bb in the script. */
+#bb-loader {
+  position: fixed; left: 0; right: 0; bottom: 0; top: var(--bb-top, 0px); z-index: 390;
+  display: none; align-items: center; justify-content: center; box-sizing: border-box; padding: 28px 5vw;
+  direction: rtl; color: #eef3fb;
+  background: linear-gradient(135deg, #0f1627 0%, #1a2e52 100%);
+}
+#bb-loader.on  { display: flex; animation: bb-in .2s ease both; }
+#bb-loader.out { opacity: 0; transition: opacity .3s ease; }
+@keyframes bb-in { from { opacity: 0; } }
+body.bb-on #page-load-bar-wrap, body.bb-on #regen-progress-panel, body.bb-on .log-float { display: none !important; }
+.bb-card { width: min(100%, 1100px); display: flex; flex-direction: column; gap: 22px; }
+.bb-eyebrow { display: flex; align-items: center; gap: 10px; font-size: .82em; letter-spacing: .05em; color: #9fb0cc; }
+.bb-eyebrow b { color: #fff; font-weight: 700; }
+.bb-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.bb-count { font-size: .95em; color: #b7c4dc; }
+.bb-pct { font-size: 2.6em; font-weight: 800; line-height: 1; direction: ltr; font-variant-numeric: tabular-nums; }
+.bb-track { display: flex; gap: var(--bb-gap, 6px); height: 30px; transition: gap .35s ease; }
+.bb-block { position: relative; flex: 1; overflow: hidden; border-radius: 9px; background: rgba(255,255,255,.08); transition: border-radius .3s ease; }
+.bb-fill { position: absolute; top: 0; bottom: 0; inset-inline-start: 0; width: 0; border-radius: inherit;
+           background: var(--sq-grad); box-shadow: 0 0 16px var(--sq-glow); transition: width .25s ease; }
+.bb-block.pop { animation: bb-pop .45s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes bb-pop { from { transform: scale(.82, .62); } }
+.bb-track.fused .bb-block { border-radius: 0; }
+.bb-track.fused .bb-block:first-child { border-radius: 0 9px 9px 0; }
+.bb-track.fused .bb-block:last-child  { border-radius: 9px 0 0 9px; }
+.bb-stages { list-style: none; margin: 0; padding: 0; display: flex; }
+.bb-stage { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.bb-seg { position: relative; height: 4px; margin-inline: 3px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; }
+.bb-seg i { position: absolute; top: 0; bottom: 0; inset-inline-start: 0; width: 0; background: var(--sq-grad); transition: width .25s ease; }
+.bb-chip { display: flex; align-items: center; gap: 8px; margin-inline: 3px; padding: 8px 10px; border-radius: 10px;
+           font-size: .82em; color: #8fa1bf; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08);
+           transition: background .25s, color .25s, border-color .25s; }
+.bb-num { font-weight: 700; opacity: .7; font-variant-numeric: tabular-nums; }
+.bb-lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bb-mark { flex: none; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; }
+.bb-mark .ok-draw { width: 18px; height: 18px; margin: 0; vertical-align: 0; }
+.bb-stage.active .bb-chip { color: #fff; background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.22); }
+.bb-stage.active .bb-mark::before { content: ''; width: 10px; height: 10px; border-radius: 17%; background: var(--sq-grad); animation: sq-turn 3.6s infinite; }
+.bb-stage.done .bb-chip { color: #d9f7e8; background: rgba(52,211,153,.1); border-color: rgba(52,211,153,.45); }
+.bb-stage.done .bb-mark { color: #34d399; }
+@media (max-width: 700px) {
+  #bb-loader { padding: 20px 16px; }
+  .bb-stages { flex-direction: column; gap: 8px; }
+  .bb-stage { flex-direction: row; align-items: center; gap: 8px; }
+  .bb-seg { width: 4px; height: 34px; margin: 0; flex: none; }
+  .bb-seg i { inset: auto 0 0 0; width: auto; height: 0; transition: height .25s ease; }
+  .bb-chip { flex: 1; margin: 0; }
+  .bb-pct { font-size: 2.1em; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bb-block.pop, #bb-loader.on { animation: none; }
+  .bb-track, .bb-fill, .bb-seg i { transition: none; }
+}
 #month-nav-overlay .mnav-spinner {
   width: 32px; height: 32px;
   background: var(--sq-grad); border-radius: 17%; animation: sq-turn 3.6s infinite; box-shadow: 0 0 22px var(--sq-glow);
@@ -2561,6 +2618,21 @@ body {
   <div id="page-load-bar"></div>
 </div>
 
+<!-- Full-page loader (Block Build): shown while a month loads or is analysed -->
+<div id="bb-loader" role="status" aria-live="polite">
+  <div class="bb-card">
+    <div class="bb-eyebrow"><span id="bb-title">טוען את החודש</span><b id="bb-month"></b></div>
+    <div class="bb-head">
+      <div class="bb-count" id="bb-count">שלב 1</div>
+      <div class="bb-pct" id="bb-pct">0%</div>
+    </div>
+    <div class="bb-track" id="bb-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="bb-block"><i class="bb-fill"></i></div><div class="bb-block"><i class="bb-fill"></i></div><div class="bb-block"><i class="bb-fill"></i></div><div class="bb-block"><i class="bb-fill"></i></div><div class="bb-block"><i class="bb-fill"></i></div>
+    </div>
+    <ol class="bb-stages" id="bb-stages"></ol>
+  </div>
+</div>
+
 <!-- Hamburger -->
 <button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
   <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
@@ -3501,6 +3573,139 @@ function reloadCurrent() {
   }
 }
 
+// ── Full-page "Block Build" loader ─────────────────────────
+// ONE indicator for the whole monthly page while a month loads or is analysed. It follows the single
+// percentage that _loadBar already receives (server progress points while analysing, fetch milestones
+// while loading), splits it into stages and ticks each stage off when its share is done. The bar is five
+// blocks that pop in one after the other and fuse into one smooth bar as the percentage rises.
+//   mode 'analysis': thresholds match the points the analysis reports (15 / 33 / 51 / 66 of 100, then the page loads)
+//   mode 'fetch'   : the month is already analysed - fetch, receive, build the view
+var _bb = (function() {
+  var STAGES = {
+    analysis: [['קריאת עסקאות ועיבוד', 15], ['אימות אשראי ומזומן', 33], ['גרפים וחישובי יתרה', 51],
+               ['התראות חכמות ובדיקות', 66], ['טעינת הנתונים לעמוד', 100]],
+    fetch:    [['פונה לשרת', 55], ['מקבל את נתוני החודש', 72], ['בונה את התצוגה', 100]]
+  };
+  var TITLES = { analysis: 'מנתח את החודש', fetch: 'טוען את החודש' };
+  var MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  var BLOCKS = 5;
+  var mode = 'fetch', pct = 0, complete = false, shown = false, showTimer = null, hideTimer = null, shownAt = 0;
+  var popped = [], marked = [];
+
+  function el(id) { return document.getElementById(id); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function monthLabel() {
+    var p = String(_currentKey || '').split('_'), m = parseInt(p[1], 10);
+    return (m >= 1 && m <= 12 && p[0]) ? MONTHS[m - 1] + ' ' + p[0] : '';
+  }
+  function place() {
+    // below the month roller (so months can still be switched while one loads)
+    var r = el('month-roller'), top = 0;
+    if (r && r.style.display !== 'none') { var b = r.getBoundingClientRect().bottom; if (b > 0 && b < window.innerHeight / 2) top = Math.round(b); }
+    el('bb-loader').style.setProperty('--bb-top', top + 'px');
+  }
+  function buildStages() {
+    var list = el('bb-stages');
+    list.innerHTML = STAGES[mode].map(function(s, i) {
+      return '<li class="bb-stage" data-i="' + i + '"><div class="bb-seg"><i></i></div>' +
+             '<div class="bb-chip"><span class="bb-num">' + ('0' + (i + 1)).slice(-2) + '</span>' +
+             '<span class="bb-lbl">' + s[0] + '</span><span class="bb-mark"></span></div></li>';
+    }).join('');
+    marked = [];
+  }
+  function paint() {
+    var node = el('bb-loader');
+    if (!node) return;
+    var st = STAGES[mode], v = complete ? 100 : pct;
+    var shownPct = Math.round(complete ? 100 : Math.min(pct, 99));
+    el('bb-pct').textContent = shownPct + '%';
+    el('bb-track').setAttribute('aria-valuenow', String(shownPct));
+    // five blocks: each fills its own fifth and pops in when it starts
+    var blocks = el('bb-track').children;
+    for (var i = 0; i < BLOCKS; i++) {
+      var share = clamp((v - i * (100 / BLOCKS)) / (100 / BLOCKS), 0, 1);
+      blocks[i].firstChild.style.width = (share * 100) + '%';
+      if (share > 0 && !popped[i]) {
+        popped[i] = true;
+        blocks[i].classList.remove('pop'); void blocks[i].offsetWidth; blocks[i].classList.add('pop');
+      }
+    }
+    // ...and fuse into one smooth bar as the end approaches
+    var gap = 6 * (1 - clamp((v - 55) / 45, 0, 1));
+    el('bb-track').style.setProperty('--bb-gap', gap.toFixed(2) + 'px');
+    el('bb-track').classList.toggle('fused', v >= 99.5);
+    // stage timeline: a finished stage is ticked and the next one becomes the active one
+    var active = -1, lis = el('bb-stages').children, vertical = window.innerWidth <= 700;
+    for (var j = 0; j < st.length; j++) {
+      var lower = j ? st[j - 1][1] : 0, upper = st[j][1], isLast = j === st.length - 1;
+      var done = complete || (!isLast && v >= upper);
+      var on = !done && v >= lower;
+      if (on && active < 0) active = j;
+      lis[j].classList.toggle('done', done);
+      lis[j].classList.toggle('active', on);
+      var fill = lis[j].querySelector('.bb-seg i');
+      fill.style[vertical ? 'height' : 'width'] = (done ? 100 : on ? clamp((v - lower) / (upper - lower), 0, 1) * 100 : 0) + '%';
+      if (done && !marked[j]) { marked[j] = true; lis[j].querySelector('.bb-mark').innerHTML = window.okDraw ? okDraw() : '✓'; }
+    }
+    el('bb-count').textContent = complete ? 'הושלם' : ('שלב ' + (Math.max(active, 0) + 1) + ' מתוך ' + st.length);
+  }
+  function reveal() {
+    showTimer = null;
+    var node = el('bb-loader');
+    if (!node) return;
+    place();
+    shown = true;
+    shownAt = Date.now();
+    node.classList.remove('out');
+    node.classList.add('on');
+    document.body.classList.add('bb-on');
+  }
+  function reset(m) {
+    mode = STAGES[m] ? m : 'fetch'; pct = 0; complete = false; popped = [];
+    var blocks = el('bb-track').children;
+    for (var i = 0; i < blocks.length; i++) { blocks[i].classList.remove('pop'); blocks[i].firstChild.style.width = '0%'; }
+    el('bb-title').textContent = TITLES[mode];
+    el('bb-month').textContent = monthLabel();
+    buildStages();
+    paint();
+  }
+  return {
+    // Start (or restart in another mode). The overlay appears after a beat, so a month that renders at once
+    // from the cache never flashes it.
+    show: function(m) {
+      if (!el('bb-loader')) return;
+      clearTimeout(hideTimer); hideTimer = null;
+      clearTimeout(showTimer); showTimer = null;
+      reset(m);
+      if (shown) el('bb-loader').classList.remove('out');
+      else showTimer = setTimeout(reveal, 120);
+    },
+    set: function(v) {
+      if (!el('bb-loader') || complete || v <= pct) return;
+      pct = v;
+      paint();
+    },
+    // All stages ticked, then fade out. failed: just leave (the page shows the error itself).
+    finish: function(failed) {
+      clearTimeout(showTimer); showTimer = null;
+      if (!shown) return;
+      if (!failed) { complete = true; paint(); }
+      // a short load only blinks the ticks; a long one holds them a moment so the finish can be seen
+      var hold = (Date.now() - shownAt) < 600 ? 180 : 500;
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(function() {
+        var node = el('bb-loader');
+        node.classList.add('out');
+        hideTimer = setTimeout(function() {
+          node.classList.remove('on', 'out');
+          document.body.classList.remove('bb-on');
+          shown = false;
+        }, 320);
+      }, failed ? 0 : hold);
+    }
+  };
+})();
+
 // ── Universal page-load progress bar controller ────────────
 var _loadBar = (function() {
   var _sim = null, _cur = 0, _key = null;
@@ -3532,7 +3737,10 @@ var _loadBar = (function() {
     var b = _bar();
     if (b) b.style.width = v + '%';
     _setRollerPct(_key, Math.round(v) + '%');
+    _bb.set(v);
   }
+  // analysing (progress comes from the server) or just loading an analysed month
+  function _bbMode() { return (_currentKey && _generatingMonths[_currentKey]) ? 'analysis' : 'fetch'; }
 
   return {
     start: function() {
@@ -3543,6 +3751,7 @@ var _loadBar = (function() {
       if (b) { b.style.transition = 'none'; b.style.width = '0%'; }
       if (w) w.classList.add('active');
       _setRollerPct(_key, '0%');
+      _bb.show(_bbMode());
       // Asymptotic crawl toward 96% — always moving, never plateaus, tiny jump to 100% on done
       _sim = setInterval(function() {
         var remaining = 96 - _cur;
@@ -3571,14 +3780,17 @@ var _loadBar = (function() {
       if (b) { b.style.transition = 'width 0.35s ease'; b.style.width = _cur + '%'; }
       if (w) w.classList.add('active');
       _setRollerPct(_key, Math.round(_cur) + '%');
+      _bb.show(_bbMode());
+      _bb.set(_cur);
       // Gentle crawl so bar appears alive while waiting for the next SSE milestone
       var cap = Math.min(_cur + 3, 96);
       _sim = setInterval(function() {
         if (_cur < cap) { _cur = Math.min(_cur + 0.1, cap); _setRaw(_cur); }
       }, 80);
     },
-    done: function() {
+    done: function(failed) {
       clearInterval(_sim);
+      _bb.finish(failed);
       var b = _bar(), w = _wrap();
       if (b) { b.style.transition = 'width 0.25s ease'; b.style.width = '100%'; }
       _setRollerPct(_key, null);
@@ -3628,7 +3840,7 @@ var _regenProg = {
     clearInterval(this._timer); this._timer = null;
     if (success) _updateRegenButtonPct(100);
     this._set(100, success ? '✓ הושלם!' : '✗ שגיאה');
-    _loadBar.done();
+    _loadBar.done(!success);
     setTimeout(function() {
       var b = document.getElementById('reload-btn');
       if (b) b.classList.remove('stale-db', 'stale-code');
@@ -11244,7 +11456,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           // _fetchAndRender will render when the promise resolves (key === _currentKey guard inside)
           _pendingFetches[key]
             .then(function() { if (key === _currentKey) _loadBar.done(); })
-            .catch(function() { _loadBar.done(); });
+            .catch(function() { _loadBar.done(true); });
 
         } else {
           // Start new fetch — show skeletons immediately so the page isn't empty
@@ -11254,7 +11466,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           _fetchAndRender(key)
             .then(function() { if (key === _currentKey) _loadBar.done(); })
             .catch(function(err) {
-              _loadBar.done();
+              _loadBar.done(true);
               if (key !== _currentKey) return;
               if (err && err.message === 'no_data') {
                 if (_errorMonths[key]) {

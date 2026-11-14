@@ -303,6 +303,16 @@ computed live per request (balance changes with every bank file); the recurring 
 - **One value per day:** an account given several balances on the same day shows the one entered last (`src_utils/account_series.collapse_same_day`,
   entries are read ordered by date then ID; `latest_value` for the settings check). Page sorts must be stable for equal dates.
 
+## Monthly page loader — one full-page indicator
+
+While a month loads or is analysed, `Base_template.html` shows **one** loader (`#bb-loader`, controller `_bb`): a "Block Build" bar (five blocks pop in one by one and fuse into a smooth bar as the
+percentage rises) over the whole page below the month roller, with a stage timeline underneath (each finished stage gets a drawn green tick, the next becomes active).
+It has no percentage of its own: `_loadBar._setRaw` (the single place every progress value passes) feeds it, `_loadBar.start/resume/done(failed)` show and finish it.
+- `analysis` mode (month being analysed): stages end at 15 / 33 / 51 / 66 / 100 — the cumulative points `AppManager.monthly_analysis` reports (15, 8, 10, 12, 6, 10, 5), then the page loads.
+  If the points in `monthly_analysis` change, change `STAGES.analysis` with them (`tests/test_monthly_loader.py` pins the numbers). `fetch` mode: an analysed month is only fetched (55 / 72 / 100).
+- It appears after 120 ms, so a month that renders at once from the cache never flashes it; a failed analysis leaves without a fake 100 %.
+- While it is up the top bar, the FAB progress panel and the floating log are hidden (`body.bb-on`); z-index 390, below the hamburger, so the menu stays reachable.
+
 ---
 
 ## Color palette

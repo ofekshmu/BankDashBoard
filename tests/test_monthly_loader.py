@@ -13,11 +13,12 @@ def _page():
         return f.read()
 
 
-def test_loader_markup_has_five_blocks_and_a_stage_list():
+def test_the_bar_has_one_block_per_stage_and_no_extra_line_above_the_timeline():
     page = _page()
     assert 'id="bb-loader"' in page and 'id="bb-stages"' in page
-    track = page[page.index('id="bb-track"'):page.index('id="bb-stages"')]
-    assert track.count('class="bb-block"') == 5
+    assert "track.innerHTML = new Array(n + 1).join(" in page                    # n blocks, n = number of stages
+    assert 'for (var i = 0; i < st.length; i++) {' in page                      # the blocks follow the stages, not a fixed five
+    assert 'bb-seg' not in page                                                  # the thin per-stage line is gone
 
 
 def test_every_percentage_the_page_already_reports_reaches_the_loader():

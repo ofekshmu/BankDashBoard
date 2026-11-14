@@ -612,7 +612,7 @@ body.bb-on #page-load-bar-wrap, body.bb-on #regen-progress-panel, body.bb-on .lo
 .bb-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .bb-count { font-size: .95em; color: #b7c4dc; }
 .bb-pct { font-size: 2.6em; font-weight: 800; line-height: 1; direction: ltr; font-variant-numeric: tabular-nums; }
-.bb-track { display: flex; gap: var(--bb-gap, 6px); height: 30px; transition: gap .35s ease; }
+.bb-track { display: flex; gap: var(--bb-gap, 6px); height: 30px; transition: gap .35s ease; margin-bottom: -4px; }
 .bb-block { position: relative; flex: 1; overflow: hidden; border-radius: 9px; background: rgba(255,255,255,.08); transition: border-radius .3s ease; }
 .bb-fill { position: absolute; top: 0; bottom: 0; inset-inline-start: 0; width: 0; border-radius: inherit;
            background: var(--sq-grad); box-shadow: 0 0 16px var(--sq-glow); transition: width .25s ease; }
@@ -622,9 +622,7 @@ body.bb-on #page-load-bar-wrap, body.bb-on #regen-progress-panel, body.bb-on .lo
 .bb-track.fused .bb-block:first-child { border-radius: 0 9px 9px 0; }
 .bb-track.fused .bb-block:last-child  { border-radius: 9px 0 0 9px; }
 .bb-stages { list-style: none; margin: 0; padding: 0; display: flex; }
-.bb-stage { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-.bb-seg { position: relative; height: 4px; margin-inline: 3px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; }
-.bb-seg i { position: absolute; top: 0; bottom: 0; inset-inline-start: 0; width: 0; background: var(--sq-grad); transition: width .25s ease; }
+.bb-stage { flex: 1; min-width: 0; }
 .bb-chip { display: flex; align-items: center; gap: 8px; margin-inline: 3px; padding: 8px 10px; border-radius: 10px;
            font-size: .82em; color: #8fa1bf; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08);
            transition: background .25s, color .25s, border-color .25s; }
@@ -639,15 +637,12 @@ body.bb-on #page-load-bar-wrap, body.bb-on #regen-progress-panel, body.bb-on .lo
 @media (max-width: 700px) {
   #bb-loader { padding: 20px 16px; }
   .bb-stages { flex-direction: column; gap: 8px; }
-  .bb-stage { flex-direction: row; align-items: center; gap: 8px; }
-  .bb-seg { width: 4px; height: 34px; margin: 0; flex: none; }
-  .bb-seg i { inset: auto 0 0 0; width: auto; height: 0; transition: height .25s ease; }
   .bb-chip { flex: 1; margin: 0; }
   .bb-pct { font-size: 2.1em; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bb-block.pop, #bb-loader.on { animation: none; }
-  .bb-track, .bb-fill, .bb-seg i { transition: none; }
+  .bb-track, .bb-fill { transition: none; }
 }
 #month-nav-overlay .mnav-spinner {
   width: 32px; height: 32px;
@@ -2627,7 +2622,6 @@ body.bb-on #page-load-bar-wrap, body.bb-on #regen-progress-panel, body.bb-on .lo
       <div class="bb-pct" id="bb-pct">0%</div>
     </div>
     <div class="bb-track" id="bb-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-      <div class="bb-block"><i class="bb-fill"></i></div><div class="bb-block"><i class="bb-fill"></i></div><div class="bb-block"><i class="bb-fill"></i></div><div class="bb-block"><i class="bb-fill"></i></div><div class="bb-block"><i class="bb-fill"></i></div>
     </div>
     <ol class="bb-stages" id="bb-stages"></ol>
   </div>
@@ -3576,8 +3570,9 @@ function reloadCurrent() {
 // ── Full-page "Block Build" loader ─────────────────────────
 // ONE indicator for the whole monthly page while a month loads or is analysed. It follows the single
 // percentage that _loadBar already receives (server progress points while analysing, fetch milestones
-// while loading), splits it into stages and ticks each stage off when its share is done. The bar is five
-// blocks that pop in one after the other and fuse into one smooth bar as the percentage rises.
+// while loading), splits it into stages and ticks each stage off when its share is done. The bar has one
+// block per stage (each sits above its stage in the timeline); the blocks pop in one after the other and
+// fuse into one smooth bar as the percentage rises.
 //   mode 'analysis': thresholds match the points the analysis reports (15 / 33 / 51 / 66 of 100, then the page loads)
 //   mode 'fetch'   : the month is already analysed - fetch, receive, build the view
 var _bb = (function() {
@@ -3588,7 +3583,6 @@ var _bb = (function() {
   };
   var TITLES = { analysis: 'מנתח את החודש', fetch: 'טוען את החודש' };
   var MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
-  var BLOCKS = 5;
   var mode = 'fetch', pct = 0, complete = false, shown = false, showTimer = null, hideTimer = null, shownAt = 0;
   var popped = [], marked = [];
 
@@ -3605,9 +3599,11 @@ var _bb = (function() {
     el('bb-loader').style.setProperty('--bb-top', top + 'px');
   }
   function buildStages() {
+    var track = el('bb-track'), n = STAGES[mode].length;
+    track.innerHTML = new Array(n + 1).join('<div class="bb-block"><i class="bb-fill"></i></div>');
     var list = el('bb-stages');
     list.innerHTML = STAGES[mode].map(function(s, i) {
-      return '<li class="bb-stage" data-i="' + i + '"><div class="bb-seg"><i></i></div>' +
+      return '<li class="bb-stage" data-i="' + i + '">' +
              '<div class="bb-chip"><span class="bb-num">' + ('0' + (i + 1)).slice(-2) + '</span>' +
              '<span class="bb-lbl">' + s[0] + '</span><span class="bb-mark"></span></div></li>';
     }).join('');
@@ -3620,10 +3616,10 @@ var _bb = (function() {
     var shownPct = Math.round(complete ? 100 : Math.min(pct, 99));
     el('bb-pct').textContent = shownPct + '%';
     el('bb-track').setAttribute('aria-valuenow', String(shownPct));
-    // five blocks: each fills its own fifth and pops in when it starts
+    // one block per stage: it fills over that stage's share of the percentage and pops in when it starts
     var blocks = el('bb-track').children;
-    for (var i = 0; i < BLOCKS; i++) {
-      var share = clamp((v - i * (100 / BLOCKS)) / (100 / BLOCKS), 0, 1);
+    for (var i = 0; i < st.length; i++) {
+      var bLower = i ? st[i - 1][1] : 0, share = clamp((v - bLower) / (st[i][1] - bLower), 0, 1);
       blocks[i].firstChild.style.width = (share * 100) + '%';
       if (share > 0 && !popped[i]) {
         popped[i] = true;
@@ -3635,7 +3631,7 @@ var _bb = (function() {
     el('bb-track').style.setProperty('--bb-gap', gap.toFixed(2) + 'px');
     el('bb-track').classList.toggle('fused', v >= 99.5);
     // stage timeline: a finished stage is ticked and the next one becomes the active one
-    var active = -1, lis = el('bb-stages').children, vertical = window.innerWidth <= 700;
+    var active = -1, lis = el('bb-stages').children;
     for (var j = 0; j < st.length; j++) {
       var lower = j ? st[j - 1][1] : 0, upper = st[j][1], isLast = j === st.length - 1;
       var done = complete || (!isLast && v >= upper);
@@ -3643,8 +3639,6 @@ var _bb = (function() {
       if (on && active < 0) active = j;
       lis[j].classList.toggle('done', done);
       lis[j].classList.toggle('active', on);
-      var fill = lis[j].querySelector('.bb-seg i');
-      fill.style[vertical ? 'height' : 'width'] = (done ? 100 : on ? clamp((v - lower) / (upper - lower), 0, 1) * 100 : 0) + '%';
       if (done && !marked[j]) { marked[j] = true; lis[j].querySelector('.bb-mark').innerHTML = window.okDraw ? okDraw() : '✓'; }
     }
     el('bb-count').textContent = complete ? 'הושלם' : ('שלב ' + (Math.max(active, 0) + 1) + ' מתוך ' + st.length);
@@ -3662,8 +3656,6 @@ var _bb = (function() {
   }
   function reset(m) {
     mode = STAGES[m] ? m : 'fetch'; pct = 0; complete = false; popped = [];
-    var blocks = el('bb-track').children;
-    for (var i = 0; i < blocks.length; i++) { blocks[i].classList.remove('pop'); blocks[i].firstChild.style.width = '0%'; }
     el('bb-title').textContent = TITLES[mode];
     el('bb-month').textContent = monthLabel();
     buildStages();

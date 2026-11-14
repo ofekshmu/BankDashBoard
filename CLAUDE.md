@@ -305,7 +305,7 @@ computed live per request (balance changes with every bank file); the recurring 
 
 ## Monthly page loader — one full-page indicator
 
-While a month loads or is analysed, `Base_template.html` shows **one** loader (`#bb-loader`, controller `_bb`): a "Block Build" bar (five blocks pop in one by one and fuse into a smooth bar as the
+While a month loads or is analysed, `Base_template.html` shows **one** loader (`#bb-loader`, controller `_bb`): a "Block Build" bar (one block per stage — 5 while analysing, 3 while only fetching — popping in one by one and fusing into a smooth bar as the
 percentage rises) over the whole page below the month roller, with a stage timeline underneath (each finished stage gets a drawn green tick, the next becomes active).
 It has no percentage of its own: `_loadBar._setRaw` (the single place every progress value passes) feeds it, `_loadBar.start/resume/done(failed)` show and finish it.
 - `analysis` mode (month being analysed): stages end at 15 / 33 / 51 / 66 / 100 — the cumulative points `AppManager.monthly_analysis` reports (15, 8, 10, 12, 6, 10, 5), then the page loads.

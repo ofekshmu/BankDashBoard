@@ -3883,11 +3883,26 @@ def _build_organizer_page(progress_callback=None):
         from Configurations.Formats import Formats
         from database import DataBase as _DB
         from datetime import datetime as _dt
+        from pandas import isna as _pd_isna
         _untagged, _desc = _DB().get_untagged(table='BankTransactions')
         _TSEP = ' | '
         _DFMT = '%B, %Y'
         _DFMT_FULL = '%Y-%m-%d %H:%M:%S'
         _DLEN = 10
+        _cells = []
+        # a column replaced by a newer format of the same card is not flagged for the months after its last file
+        _last_by_col = {}
+        for _c in df.columns:
+            _months = []
+            for _i in df.index:
+                try:
+                    if not _pd_isna(df.at[_i, _c]):
+                        _months.append(_dt.strptime(str(_i), _DFMT))
+                except Exception:
+                    continue
+            if _months:
+                _last_by_col[_c] = max(_months)
+        _superseded = _utils._superseded_columns(_last_by_col)
         for col in df.columns:
             try:
                 fmt_name, card_num_col = col.split(_TSEP)
@@ -3903,12 +3918,10 @@ def _build_organizer_page(progress_callback=None):
                         row_date = _dt.strptime(str(idx), _DFMT)
                     except Exception:
                         continue
-                    match = _utils._find_untagged_transaction_match(
-                        _untagged, _desc, possible, val, sts,
-                        row_date, _DFMT_FULL, _DLEN
-                    )
-                    if match:
-                        untagged_cells[(idx, col)] = match
+                    if col in _superseded and row_date > _last_by_col[col]:
+                        continue
+                    _cells.append(((idx, col), possible, val, sts, row_date, card_num_col))
+        untagged_cells = _utils.match_missing_cells(_cells, _untagged, _desc, _DFMT_FULL, _DLEN)
     except Exception:
         pass
 

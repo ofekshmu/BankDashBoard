@@ -3306,6 +3306,50 @@ Please Make sure that none of the following formats have their 'Identifications 
         return df, color_coded_df
 
     @staticmethod
+    def _recent_card_charge(card_number, month, cache):
+        """The card's most recent monthly charge total (its CardTransactions with a Charge_Date in `month`, or
+        in one of the two months before), or None. A repeating charge - the same subscriptions and tuition every
+        month - then points to the card whose file is missing. `cache` maps (year, month) -> {card: total}."""
+        from database import DataBase
+        from dateutil.relativedelta import relativedelta
+        for back in range(3):
+            m = month - relativedelta(months=back)
+            key = (m.year, m.month)
+            if key not in cache:
+                try:
+                    df = DataBase().get_cards_by_charge_date(m.month, m.year)
+                    sums = ({} if df.empty else
+                            {str(c).strip(): abs(float(v)) for c, v in df.groupby('CardID')['Out/Transaction_value'].sum().items()})
+                except Exception:
+                    sums = {}
+                cache[key] = sums
+            total = cache[key].get(str(card_number).strip())
+            if total:
+                return total
+        return None
+
+    @staticmethod
+    def match_missing_cells(cells, untagged, desc, date_full, date_len):
+        """Assign untagged bank charges to the cards whose file is missing.
+
+        cells: [(key, possible_names, value, status, row_month, card_number)] in display order.
+        Returns {key: match}. One charge explains one cell. First every cell whose card's last known charge
+        equals the bank charge (within a small tolerance) takes it - so the charge lands on the right card even
+        when several cards share one bank name - then the remaining cells take what is left, in order."""
+        found, cache = {}, {}
+        for strict in (True, False):
+            for key, possible, value, status, row_month, card in cells:
+                if key in found:
+                    continue
+                expected = utils._recent_card_charge(card, row_month, cache) if strict else None
+                match = utils._find_untagged_transaction_match(
+                    untagged, desc, possible, value, status, row_month, date_full, date_len,
+                    strict_amount=strict, expected=expected)
+                if match:
+                    found[key] = match
+        return found
+
+    @staticmethod
     def _superseded_columns(last_by_col: dict) -> set:
         """Organizer columns ("Format | card") that were replaced by a newer format of the same card.
 
@@ -3394,28 +3438,19 @@ Please Make sure that none of the following formats have their 'Identifications 
         except Exception:
             _untagged, _desc = [], []
 
-        results = []
+        cells = []
         for fmt, card, col in sorted(filtered):
             card_names = Formats.FORMATS.get(fmt, {}).get('Transaction Names', {})
             possible = set(card_names.get(card, []))
             if not possible or not _untagged:
                 continue
-            match = utils._find_untagged_transaction_match(
-                _untagged, _desc, possible, None, None, t, _DFMT, _DLEN
-            )
-            if match is None:
-                continue
-            results.append({
-                'col':      col,
-                'fmt':      fmt,
-                'card':     card,
-                'untagged': match,
-            })
-        return results
+            cells.append(((fmt, card, col), possible, None, None, t, card))
+        matches = utils.match_missing_cells(cells, _untagged, _desc, _DFMT, _DLEN)
+        return [{'col': key[2], 'fmt': key[0], 'card': key[1], 'untagged': matches[key]}
+                for key, *_ in cells if key in matches]
 
     @staticmethod
-    def _find_untagged_transaction_match(untagged_transactions, desc, possible_names, value, status, 
-                                         row_month_year, date_format_full, date_string_length):
+    def _find_untagged_transaction_match(untagged_transactions, desc, possible_names, value, status, row_month_year, date_format_full, date_string_length, strict_amount=False, expected=None, tol=20):
         """
         Find a matching untagged transaction for a given cell value.
         Uses the original logic: iterate through list and remove matched transaction.
@@ -3429,6 +3464,10 @@ Please Make sure that none of the following formats have their 'Identifications 
         @param date_format_full: Date format string for parsing transaction dates
         @param date_string_length: Expected length of date string
         
+        @param strict_amount: for an empty cell, only accept a charge whose amount is within `tol` of `expected`
+               (the card's last known charge); with no `expected` the empty cell is skipped. Several cards can
+               share one bank name, so the amount is what tells which card the charge belongs to.
+
         @return: Tuple (trans_date, val, name, match_type) if match found, None otherwise
         """
         from datetime import datetime, date as _date
@@ -3470,6 +3509,12 @@ Please Make sure that none of the following formats have their 'Identifications 
                                     '-' in value and status == 'Not Verified')
             
             if is_empty:  # Cell is empty
+                if strict_amount:
+                    try:
+                        if expected is None or val is None or abs(abs(float(val)) - float(expected)) > tol:
+                            continue
+                    except (TypeError, ValueError):
+                        continue
                 untagged_transactions.remove(row)
                 return (trans_date, val, name, "missing")
             elif is_not_verified_date:  # Cell has unverified date
@@ -3506,6 +3551,7 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         # 2. Build a lookup for untagged-match cells (for both empty and not-verified date cells)
         untagged_match_cells = dict()  # (row_idx, col) -> (date, value, cell_type)
+        cells = []                     # every cell that may be explained by an untagged bank charge
 
         # A column replaced by a newer format of the same card is not flagged for the months after its last file.
         last_by_col = {}
@@ -3544,17 +3590,13 @@ Please Make sure that none of the following formats have their 'Identifications 
                         continue
                     if col in superseded_cols and row_month_year > last_by_col[col]:
                         continue
-                    
-                    # Find a matching untagged transaction for this card/format/date
-                    match = utils._find_untagged_transaction_match(
-                        untagged_transactions, desc, possible_names, value, status, 
-                        row_month_year, DATE_FORMAT_FULL, DATE_STRING_LENGTH
-                    )
-                    if match:
-                        untagged_match_cells[(idx, col)] = match
+                    cells.append(((idx, col), possible_names, value, status, row_month_year, card_number))
     
             elif BANK_CARD_NUMBER != card_number:   # Bank formats will not trigger the following warning
                 utils.log(f"Column '{col}' does not have a valid card number in the format dictionary, skipping...", "warning")
+
+        # Charges that explain a missing file, assigned to the right card (by amount first, then in order)
+        untagged_match_cells = utils.match_missing_cells(cells, untagged_transactions, desc, DATE_FORMAT_FULL, DATE_STRING_LENGTH)
 
         # 5. Legend text
         legend_text = {

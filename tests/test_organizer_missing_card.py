@@ -69,3 +69,35 @@ def test_two_issuers_with_the_same_last_digits_are_different_cards():
 def test_same_last_file_is_not_superseded():
     last = {'A | 1111': datetime(2026, 10, 1), 'B | 1111': datetime(2026, 10, 1)}
     assert utils._superseded_columns(last) == set()
+
+
+def _cells(*cards):
+    """One missing cell per card for the same month, all sharing the bank name."""
+    return [(('Oct', f'c{c}'), {NAME}, None, None, datetime(2026, 10, 1), c) for c in cards]
+
+
+def test_the_charge_goes_to_the_card_whose_last_charge_it_equals(monkeypatch):
+    """Three cards share one bank name; the 577.89 charge repeats card 2922's last month (578)."""
+    last = {'7574': 480.0, '1565': 1361.0, '2922': 578.0}
+    monkeypatch.setattr(utils, '_recent_card_charge', staticmethod(lambda card, month, cache: last.get(card)))
+    found = utils.match_missing_cells(_cells('7574', '1565', '2922'), [_row(date(2026, 11, 2))], DESC, FULL, LEN)
+    assert list(found) == [('Oct', 'c2922')]
+    assert found[('Oct', 'c2922')][3] == 'missing'
+
+
+def test_without_a_matching_amount_the_first_card_takes_the_charge(monkeypatch):
+    monkeypatch.setattr(utils, '_recent_card_charge', staticmethod(lambda card, month, cache: 5000.0))   # none is close
+    found = utils.match_missing_cells(_cells('7574', '1565', '2922'), [_row(date(2026, 11, 2))], DESC, FULL, LEN)
+    assert list(found) == [('Oct', 'c7574')]
+
+
+def test_a_card_with_no_history_still_gets_a_charge_that_nobody_else_claims(monkeypatch):
+    monkeypatch.setattr(utils, '_recent_card_charge', staticmethod(lambda card, month, cache: None))
+    found = utils.match_missing_cells(_cells('7574'), [_row(date(2026, 11, 2))], DESC, FULL, LEN)
+    assert list(found) == [('Oct', 'c7574')]
+
+
+def test_one_charge_explains_one_card(monkeypatch):
+    monkeypatch.setattr(utils, '_recent_card_charge', staticmethod(lambda card, month, cache: 578.0))
+    found = utils.match_missing_cells(_cells('2922', '7574'), [_row(date(2026, 11, 2))], DESC, FULL, LEN)
+    assert len(found) == 1

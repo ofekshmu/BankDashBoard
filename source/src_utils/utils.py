@@ -3306,6 +3306,25 @@ Please Make sure that none of the following formats have their 'Identifications 
         return df, color_coded_df
 
     @staticmethod
+    def _superseded_columns(last_by_col: dict) -> set:
+        """Organizer columns ("Format | card") that were replaced by a newer format of the same card.
+
+        `last_by_col` maps a column to the date of its last file. A card that moved to a new file format
+        (Isra-Card -> Isra-Card-2026) leaves its old column with no files for every later month; that is not
+        a missing file, and left alone it would also take the bank charge that explains the new column's gap.
+        Only a format whose name extends the old one counts as its successor: two different issuers that
+        happen to have a card ending in the same digits are not the same card."""
+        def parts(col):
+            fmt, _, card = col.partition(' | ')
+            return fmt, card
+        def successor(old_col, new_col):
+            old_fmt, old_card = parts(old_col)
+            new_fmt, new_card = parts(new_col)
+            return old_card == new_card and new_fmt != old_fmt and new_fmt.startswith(old_fmt)
+        return {col for col, last in last_by_col.items()
+                if any(successor(col, other) and other_last > last for other, other_last in last_by_col.items())}
+
+    @staticmethod
     def get_organizer_alerts_for_month(t):
         """
         Returns missing-file alerts for month t, mirroring the organizer table logic.
@@ -3324,8 +3343,10 @@ Please Make sure that none of the following formats have their 'Identifications 
             return []
 
         def _parse(d):
+            # The file table's Date is a date object on Postgres (it was text on SQLite): parse the first
+            # ten characters, which is the day in both shapes.
             try:
-                return datetime.strptime(str(d), "%Y-%m-%d %H:%M:%S")
+                return datetime.strptime(str(d)[:10], "%Y-%m-%d")
             except Exception:
                 return None
 
@@ -3347,9 +3368,18 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         missing = all_cols - present_cols
 
+        last_by_col = {}
+        for _, row in file_df.iterrows():
+            col = f"{row['Format']} | {row['Card_Number']}"
+            if col not in last_by_col or row['_dt'] > last_by_col[col]:
+                last_by_col[col] = row['_dt']
+        superseded = utils._superseded_columns(last_by_col)
+
         filtered = []
         for col in missing:
             fmt, card = col.split(' | ', 1)
+            if col in superseded:
+                continue
             if fmt == 'Isra-Card-2026' and t.year < 2026:
                 continue
             filtered.append((fmt, card, col))
@@ -3401,8 +3431,13 @@ Please Make sure that none of the following formats have their 'Identifications 
         
         @return: Tuple (trans_date, val, name, match_type) if match found, None otherwise
         """
-        from datetime import datetime
-        
+        from datetime import datetime, date as _date
+        from dateutil.relativedelta import relativedelta
+
+        # The bank charge for a card's spending month lands in the following month. (Comparing
+        # `month - 1` to `month` broke at the year boundary: January's charge for December.)
+        charge_month = row_month_year + relativedelta(months=1)
+
         for row in untagged_transactions:
             name = row[desc.index('Name')]
             date_str = row[desc.index('Date')] if 'Date' in desc else None
@@ -3410,14 +3445,23 @@ Please Make sure that none of the following formats have their 'Identifications 
             
             if name not in possible_names or not date_str:
                 continue
-                
-            try:
-                trans_date = datetime.strptime(date_str, date_format_full).date()
-            except Exception:
-                continue
-            
+
+            # Postgres hands back a date/datetime object (SQLite used to hand back text); accept both.
+            if isinstance(date_str, datetime):
+                trans_date = date_str.date()
+            elif isinstance(date_str, _date):
+                trans_date = date_str
+            else:
+                try:
+                    trans_date = datetime.strptime(str(date_str), date_format_full).date()
+                except Exception:
+                    try:
+                        trans_date = datetime.strptime(str(date_str)[:10], '%Y-%m-%d').date()
+                    except Exception:
+                        continue
+
             # Match month and year
-            if trans_date.month - 1 != row_month_year.month or trans_date.year != row_month_year.year:
+            if (trans_date.year, trans_date.month) != (charge_month.year, charge_month.month):
                 continue
             
             # Determine match type based on cell state
@@ -3462,6 +3506,21 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         # 2. Build a lookup for untagged-match cells (for both empty and not-verified date cells)
         untagged_match_cells = dict()  # (row_idx, col) -> (date, value, cell_type)
+
+        # A column replaced by a newer format of the same card is not flagged for the months after its last file.
+        last_by_col = {}
+        for _col in df.columns:
+            _months = []
+            for _idx in df.index:
+                try:
+                    if not pd.isna(df.at[_idx, _col]):
+                        _months.append(datetime.strptime(str(_idx), DATE_FORMAT_MONTH_YEAR))
+                except Exception:
+                    continue
+            if _months:
+                last_by_col[_col] = max(_months)
+        superseded_cols = utils._superseded_columns(last_by_col)
+
         for col in df.columns:  #columns are string combined of "Format Name | Card Number"
             
             try:
@@ -3482,6 +3541,8 @@ Please Make sure that none of the following formats have their 'Identifications 
                     try:
                         row_month_year = datetime.strptime(str(idx), DATE_FORMAT_MONTH_YEAR)
                     except Exception:
+                        continue
+                    if col in superseded_cols and row_month_year > last_by_col[col]:
                         continue
                     
                     # Find a matching untagged transaction for this card/format/date

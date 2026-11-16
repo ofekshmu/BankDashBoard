@@ -117,6 +117,14 @@ pq.put(95)   # after manifest
 pq.put('done')
 ```
 
+## Organizer — missing card file detection
+
+A card column (`Format | card`) with no file for a charge month is flagged **"⚠ Missing file"** (table cell `untagged-match-missing`, and `utils.get_organizer_alerts_for_month` for the monthly alerts) only when an *untagged* bank charge
+(`Category = NotCategorized`) with one of the card's configured names (`Formats.FORMATS[fmt]['Transaction Names'][card]`) exists in the following month — `_find_untagged_transaction_match`.
+- A card **must have its names configured** or it is skipped (new cards need an entry in `Formats.py`). One bank charge explains one missing card (it is consumed by the first match).
+- Postgres returns dates as `date` objects, SQLite returned text: parse with `str(d)[:10]` / accept `date` (the matcher and the file-table parse used `strptime("%Y-%m-%d %H:%M:%S")` and silently never matched).
+- A column replaced by a newer format of the same card (`Isra-Card` → `Isra-Card-2026`) is *superseded* (`utils._superseded_columns`) and is not flagged for later months; different issuers with the same last digits are different cards.
+
 ---
 
 ## Page regeneration screen

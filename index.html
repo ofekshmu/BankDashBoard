@@ -199,9 +199,20 @@
              cursor:pointer; white-space:nowrap; transition:background .15s, color .15s; }
     .mchip:hover { color:var(--ink, var(--navy)); }
     .mchip.sel { background:var(--white); border-color:var(--teal); color:var(--teal-dark); font-weight:700; }
-    .open-month { padding:7px 12px; border:0; border-radius:var(--r-input); background:var(--teal); color:var(--on-accent, #fff);
-                  font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
-    .open-month:hover { background:var(--teal-dark); }
+
+    /* Pie of the active cards: each card's share of the month's charges */
+    .pie { display:flex; align-items:center; gap:14px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+    .pie svg { flex:none; width:96px; height:96px; transform:rotate(-90deg); }
+    .pie circle { fill:none; stroke-width:6; transition:stroke-width .15s; }
+    .pie circle:hover { stroke-width:8; }
+    .pie-total { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700;
+                 font-variant-numeric:tabular-nums; direction:ltr; }
+    .pie-wrap { position:relative; flex:none; width:96px; height:96px; }
+    .pie-legend { list-style:none; display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; font-size:12.5px; }
+    .pie-legend li { display:flex; align-items:center; gap:6px; min-width:0; }
+    .pie-legend .sw { flex:none; width:9px; height:9px; border-radius:3px; }
+    .pie-legend .lb { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pie-legend .pc { flex:none; color:var(--muted); font-variant-numeric:tabular-nums; }
 
     /* Net income + net investments, previous and current month */
     .flow { display:grid; grid-template-columns:auto 1fr 1fr; align-items:baseline; gap:4px 10px; margin-top:6px;
@@ -628,6 +639,8 @@
     const body = el.querySelector('.body'), dot = el.querySelector('.dot'), entry = blockData[id];
     const oldRow = el.querySelector('.month-row');
     if (oldRow) oldRow.remove();
+    const oldAlerts = el.querySelector('.month-alerts');
+    if (oldAlerts) oldAlerts.remove();
     if (!entry) {
       if (isHidden(id)) { body.innerHTML = '<div class="err">מוסתר — הנתונים ייטענו כשיוצג</div>'; dot.className = 'dot'; }
       return;   /* otherwise the skeleton stays until the request returns */
@@ -652,15 +665,27 @@
       (id === 'monthly' && (d.extra || {}).period ? '<div class="period">' + esc(d.extra.period) + '</div>' : '') +
       '<div class="kpi' + ltr + tone + wrap + '" data-val="' + esc(d.kpi) + '" title="' + esc(d.kpi) + '">' + esc(d.kpi) + '</div>' +
       '<div class="caption" title="' + esc(d.caption) + '">' + rich(d.caption) + '</div>' +
-      ((d.details || []).length ? '<ul class="details">' + d.details.map((x, i) =>
+      ((d.details || []).length && id !== 'monthly' && !(id === 'cards' && (d.extra || {}).pie) ? '<ul class="details">' + d.details.map((x, i) =>
         '<li' + (dTones[i] === 'neg' ? ' class="neg"' : '') + ' title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '') +
       (id === 'monthly' ? flowHtml((d.extra || {}).flow) : '') +
       (id === 'accounts' ? trendHtml((d.extra || {}).trend) : '') +
+      (id === 'cards' ? pieHtml((d.extra || {}).pie) : '') +
       miniKpisHtml((d.extra || {}).tiles);
     const kpiEl = body.querySelector('.kpi.kpi-ltr');
     if (kpiEl && window.rollNumber) rollNumber(kpiEl, d.kpi, 'landing:' + id);   /* digits roll to the new figure */
     if (id === 'accounts') applyAccountsMask();
-    if (id === 'monthly') renderMonthPicker(el, d.extra || {});
+    if (id === 'monthly') {
+      renderMonthPicker(el, d.extra || {});
+      /* below the month strip: the alerts, then (very last) the update time */
+      const tail = el.querySelector('.edit-ctl'), upd = el.querySelector('.updated');
+      if ((d.details || []).length) {
+        const ul = document.createElement('ul');
+        ul.className = 'details month-alerts';
+        ul.innerHTML = d.details.map(x => '<li title="' + esc(x) + '">' + rich(x) + '</li>').join('');
+        el.insertBefore(ul, tail);
+      }
+      if (upd) el.insertBefore(upd, tail);
+    }
     paintAge(el, id);
   }
 
@@ -668,6 +693,30 @@
   function shekels(v) {
     const n = Math.round(Number(v) || 0);
     return (n < 0 ? '-' : '') + Math.abs(n).toLocaleString('en-US') + '₪';
+  }
+
+  const PIE_COLORS = ['#1e9d8b', '#1e2a4a', '#e8a317', '#4f9fd6', '#d9665a', '#7a8a9a'];
+  /** Donut of the active cards (extra.pie: {total, slices:[{label, value}]}): one slice per card, the month's total in the
+   *  middle, and a legend with each card's share. Circumference is 100 so a slice's length is its percentage. */
+  function pieHtml(p) {
+    if (!p || !p.slices || !p.slices.length) return '';
+    const sum = p.slices.reduce((a, x) => a + x.value, 0) || 1;
+    let at = 0;
+    const rows = p.slices.map((x, i) => {
+      const pc = x.value / sum * 100, color = PIE_COLORS[i % PIE_COLORS.length], start = at;
+      at += pc;
+      return { x, pc, color, start };
+    });
+    const arcs = rows.map(r => '<circle cx="21" cy="21" r="15.9155" stroke="' + r.color + '" stroke-dasharray="' +
+      Math.max(0, r.pc - 0.6).toFixed(2) + ' ' + (100 - Math.max(0, r.pc - 0.6)).toFixed(2) + '" stroke-dashoffset="' + (-r.start).toFixed(2) +
+      '"><title>' + esc(r.x.label) + '</title></circle>').join('');
+    const words = 'פילוח חיובי כרטיסים: ' + rows.map(r => r.x.label + ' (' + Math.round(r.pc) + '%)').join(', ');
+    return '<div class="pie"><div class="pie-wrap">' +
+      '<svg viewBox="0 0 42 42" role="img" aria-label="' + esc(words) + '">' + arcs + '</svg>' +
+      '<span class="pie-total">' + esc(p.total) + '</span></div>' +
+      '<ul class="pie-legend">' + rows.map(r => '<li><span class="sw" style="background:' + r.color + '"></span>' +
+        '<span class="lb" title="' + esc(r.x.label) + '">' + rich(r.x.label) + '</span><span class="pc">' + Math.round(r.pc) + '%</span></li>').join('') +
+      '</ul></div>';
   }
 
   /** Small KPI boxes inside a block (extra.tiles: [{name, value, color}]), e.g. one per bill. */
@@ -733,8 +782,7 @@
       '<div class="mstrip" role="listbox" tabindex="0" aria-label="בחירת חודש — החלקה, גלגלת העכבר או חיצים">' +
         months.map((m, i) => '<button type="button" class="mchip" role="option" tabindex="-1" data-i="' + i + '">' +
           esc(m.label) + '</button>').join('') +
-      '</div>' +
-      '<button type="button" class="open-month"></button>';
+      '</div>';
     // The picker lives beside the card link (not inside it), so it can never follow the link.
     el.querySelector('.card-link').after(row);
     const want = months.findIndex(m => m.key === (pickedMonth || extra.current));
@@ -742,9 +790,9 @@
   }
 
   /** Swipe (native scroll + snap), mouse wheel and arrow keys step through the months; the centred
-      month is the selected one. A tap on another month centres it, a tap on the selected one opens it. */
+      month is the selected one. A tap on any month opens it. */
   function wireMonthStrip(row, months, start) {
-    const strip = row.querySelector('.mstrip'), chips = Array.from(strip.children), open = row.querySelector('.open-month');
+    const strip = row.querySelector('.mstrip'), chips = Array.from(strip.children), link = row.parentElement.querySelector('.card-link');
     let sel = -1, settleTimer = null, lastWheel = 0;
     const go = () => { window.location.href = '/general/' + months[sel].key; };
 
@@ -753,7 +801,7 @@
       sel = i;
       pickedMonth = months[i].key;
       chips.forEach((c, k) => { c.classList.toggle('sel', k === i); c.setAttribute('aria-selected', String(k === i)); });
-      open.textContent = 'פתח את ' + months[i].label;
+      if (link) link.href = '/general/' + months[i].key;   /* the card itself opens the month the strip shows */
     }
     /** Select month i and scroll it to the middle (relative scrollBy works the same in RTL everywhere). */
     function select(i, smooth) {
@@ -797,9 +845,9 @@
       const chip = e.target.closest('.mchip');
       if (!chip) return;
       const i = Number(chip.dataset.i);
-      if (i === sel) go(); else select(i, true);
+      select(i, false);                                /* a tap on a month opens it - no separate button */
+      go();
     });
-    open.addEventListener('click', go);
     select(start, false);
   }
 

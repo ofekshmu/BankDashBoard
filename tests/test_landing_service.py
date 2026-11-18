@@ -511,4 +511,4 @@ def test_monthly_main_number_is_last_months_net_when_flow_exists():
     b = ls.build_monthly(MONTHS, '2026_10', FLOW_PAYLOAD, TODAY)
     prev = b['extra']['flow'][0]
     assert b['kpi'] == ls.signed_money(prev['net'])
-    assert b['extra']['period'] == prev['label'] and prev['label'] in b['caption']
+    assert b['extra']['period'] == prev['label'] and b['caption'] == 'נטו'

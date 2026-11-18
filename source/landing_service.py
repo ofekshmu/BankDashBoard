@@ -143,7 +143,7 @@ def build_monthly(months, key, payload, today=None, card_misses=None):
         last = flow[0]
         extra.update(period=last['label'], tone='neg' if last['net'] < 0 else 'pos')
         alerts = count_text(n, 'התראה אחת', 'התראות') if n else None
-        return block(signed_money(last['net']), f"נטו · {last['label']}", [alerts, misses],
+        return block(signed_money(last['net']), 'נטו', [alerts, misses],
                      dot=dot, extra=extra, attention=attention)
     return block(str(n), f'התראות ב{month_label(key)}', [misses], dot=dot, extra=extra, attention=attention)
 
@@ -261,7 +261,11 @@ def build_cards(cards, month=None):
     details = [f"{(c.get('network') or '').strip()} ·{c.get('card_id')} · {money(c['current_charge'])}".strip()
                for c in active]
     when = f'ב{month_label(month.replace("-", "_"))}' if month else 'החודש'
-    return block(str(len(active)), f'כרטיסים פעילים {when}', details, dot=None if active else 'grey')
+    # the card's share of the month's charges, drawn as a pie by the landing page
+    pie = {'total': money(sum(float(c['current_charge']) for c in active)),
+           'slices': [{'label': d, 'value': float(c['current_charge'])} for d, c in zip(details, active)]} if active else None
+    return block(str(len(active)), f'כרטיסים פעילים {when}', details, dot=None if active else 'grey',
+                 extra={'pie': pie} if pie else None)
 
 
 # ── Housing ────────────────────────────────────────────────────────────────

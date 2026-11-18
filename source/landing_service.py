@@ -441,8 +441,10 @@ def build_spotify(members):
     tones = ['neg' if round(float(m.get('balance') or 0)) < 0 else None for m in members]
     # alert on every member in debt, even when the net is positive (amber then; red when the net is negative)
     dot = 'red' if neg else ('amber' if debtors else 'green')
+    # one small tile per participant (the page shows these instead of the text lines)
+    tiles = [{'name': m['name'], 'value': signed_money(m.get('balance')), 'tone': t} for m, t in zip(members, tones)]
     return block(signed_money(net), 'מאזן נטו של המשתתפים', details, dot=dot,
-                 extra={'tone': 'neg' if neg else 'pos', 'detail_tones': tones},
+                 extra={'tone': 'neg' if neg else 'pos', 'detail_tones': tones, 'tiles': tiles},
                  attention='בחוב: ' + ' · '.join(f"{m['name']} {money(-float(m['balance']))}" for m in debtors))
 
 
@@ -506,16 +508,19 @@ def build_recurring(groups, today):
     Charges whose day already passed are skipped; the rest of the month is summed below.
     Under it: the total monthly value of all recurring charges, and what newly entered / exited."""
     ov = recurring_overview(groups, today)
-    lines = []
+    lines, tiles = [], []
     if ov['count']:
         lines.append(f"סה״כ חוזר בחודש · {money(ov['total'])} ({count_text(ov['count'], 'חיוב אחד', 'חיובים')})")
+        tiles.append({'name': 'סה״כ חוזר בחודש', 'value': money(ov['total']), 'sub': count_text(ov['count'], 'חיוב אחד', 'חיובים')})
     tones = [None] * len(lines)
     if ov['new']:
         lines.append(f"נכנס לאחרונה · {_names(ov['new'])}")
         tones.append(None)
+        tiles.append({'name': 'נכנס לאחרונה', 'value': _names(ov['new'])})
     if ov['gone']:
         lines.append(f"יצא לאחרונה · {_names(ov['gone'])}")
         tones.append('neg')
+        tiles.append({'name': 'יצא לאחרונה', 'value': _names(ov['gone']), 'tone': 'neg'})
     upcoming = []
     for g in groups or []:
         d = as_date(g.get('next_expected'))
@@ -525,14 +530,15 @@ def build_recurring(groups, today):
                 upcoming.append((due, g))
     upcoming.sort(key=lambda x: x[0])
     if not upcoming:
-        return block('—', 'אין חיובים צפויים עוד החודש', lines, dot='grey', extra={'detail_tones': tones})
+        return block('—', 'אין חיובים צפויים עוד החודש', lines, dot='grey', extra={'detail_tones': tones, 'tiles': tiles})
     (d, g), rest = upcoming[0], upcoming[1:]
     if rest:
-        lines.append(count_text(len(rest), 'עוד חיוב אחד החודש', 'חיובים נוספים החודש') + ' · ' +
-                     money(sum(float(r.get('current_amount') or 0) for _, r in rest)))
+        rest_total = money(sum(float(r.get('current_amount') or 0) for _, r in rest))
+        lines.append(count_text(len(rest), 'עוד חיוב אחד החודש', 'חיובים נוספים החודש') + ' · ' + rest_total)
         tones.append(None)
+        tiles.append({'name': 'עוד החודש', 'value': rest_total, 'sub': count_text(len(rest), 'חיוב אחד', 'חיובים')})
     return block(money(g.get('current_amount')), f"{g['name']} · ב-{short_date(d)}", lines,
-                 extra={'detail_tones': tones})
+                 extra={'detail_tones': tones, 'tiles': tiles})
 
 
 # ── Tagger ─────────────────────────────────────────────────────────────────

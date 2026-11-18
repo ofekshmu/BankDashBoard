@@ -278,6 +278,9 @@
     .mini-kpis.big .mini-kpi.main { grid-column:1 / -1; padding:12px 14px; }
     .mini-kpis.big .mini-kpi.main .mk-name { font-size:14px; font-weight:600; }
     .mini-kpis.big .mini-kpi.main .mk-val { font-size:28px; font-weight:700; }
+    .mini-kpi .mk-sub { font-size:10.5px; color:var(--muted); }
+    .mini-kpi .mk-val { overflow-wrap:anywhere; }
+    .mini-kpi.t-neg .mk-val { color:var(--red); } .mini-kpi.t-pos .mk-val { color:var(--green); }
     .mk-val.masked { filter:blur(7px); user-select:none; -webkit-user-select:none; transition:filter .25s ease; }
     .mini-kpi .mk-name { font-size:11.5px; font-weight:500; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mini-kpi .mk-val { font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
@@ -730,7 +733,7 @@
       (tp ? tp.chart + '</div>' : '') +
       '<div class="caption" title="' + esc(caption) + '">' + rich(caption) + '</div>' +
       (tp ? tp.delta : '') +
-      ((d.details || []).length && id !== 'monthly' && !(id === 'cards' && (d.extra || {}).pie) ? '<ul class="details">' + d.details.map((x, i) =>
+      ((d.details || []).length && id !== 'monthly' && !(id === 'cards' && (d.extra || {}).pie) && !((id === 'spotify' || id === 'recurring') && (d.extra || {}).tiles) ? '<ul class="details">' + d.details.map((x, i) =>
         '<li' + (dTones[i] === 'neg' ? ' class="neg"' : '') + ' title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '') +
       (id === 'monthly' ? flowHtml((d.extra || {}).flow) : '') +
       (id === 'cards' ? pieHtml((d.extra || {}).pie) : '') +
@@ -845,11 +848,12 @@
   function miniKpisHtml(tiles, big) {
     if (!tiles || !tiles.length) return '';
     return '<div class="mini-kpis' + (big ? ' big' : '') + '">' + tiles.map(t =>
-      '<div class="mini-kpi' + (t.color ? ' coloured' : '') + (t.alert ? ' alert' : '') + (t.main ? ' main' : '') + '"' + (t.color ? ' style="--mk:' + esc(t.color) + '"' : '') + '>' +
+      '<div class="mini-kpi' + (t.color ? ' coloured' : '') + (t.alert ? ' alert' : '') + (t.main ? ' main' : '') + (t.tone ? ' t-' + t.tone : '') + '"' + (t.color ? ' style="--mk:' + esc(t.color) + '"' : '') + '>' +
         '<span class="mk-name" title="' + esc(t.name + (t.since ? ' · לא עודכן מאז ' + t.since : '')) + '">' +
           (t.alert ? '<svg viewBox="0 0 24 24" role="img" aria-label="לא עודכן"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18.5h.01"/></svg>' : '') +
           esc(t.name) + '</span>' +
-        '<span class="mk-val" dir="ltr">' + esc(t.value) + '</span>' +
+        '<span class="mk-val" dir="' + (/^[-+−\d₪]/.test(t.value) ? 'ltr' : 'auto') + '" title="' + esc(t.value) + '">' + esc(t.value) + '</span>' +
+        (t.sub ? '<span class="mk-sub">' + esc(t.sub) + '</span>' : '') +
       '</div>').join('') + '</div>';
   }
 

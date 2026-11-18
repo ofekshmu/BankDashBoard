@@ -170,9 +170,12 @@
     /* Accounts value: blurred until the eye is pressed (hidden on every load) */
     .kpi.masked { filter:blur(9px); user-select:none; -webkit-user-select:none; transition:filter .25s ease; }
     .kpi { transition:filter .25s ease; }
-    .mask-btn { position:relative; z-index:2; flex:none; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:0;
-                border-radius:var(--r-input); background:transparent; color:var(--muted); cursor:pointer; }
-    .mask-btn:hover { background:var(--bg); color:var(--ink, var(--navy)); }
+    .mask-btn { position:relative; z-index:2; flex:none; width:36px; height:30px; display:inline-flex; align-items:center; justify-content:center; border:0;
+                border-radius:var(--r-input); background:var(--teal); color:var(--on-accent, #fff); cursor:pointer;
+                transition:background .15s, transform .1s; }
+    .mask-btn:hover { background:var(--teal-dark); }
+    .mask-btn:active { transform:scale(.94); }
+    .mask-btn:focus-visible { outline:2px solid var(--teal-dark); outline-offset:2px; }
     .mask-btn svg { width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
     .caption { font-size:13px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .details { list-style:none; display:flex; flex-direction:column; gap:3px; margin-top:4px; font-size:12.5px;

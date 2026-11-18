@@ -450,10 +450,52 @@ def _this_month_on(day, today):
     return today.replace(day=min(day, last))
 
 
+RECENT_MONTHS = 3   # "newly entered / exited": the group began, or last paid, within this many months
+
+
+def _months_ago(d, today):
+    return (today.year - d.year) * 12 + today.month - d.month
+
+
+def _names(groups, limit=3):
+    names = [g.get('name') or '?' for g in groups]
+    return ', '.join(names[:limit]) + (f' +{len(names) - limit}' if len(names) > limit else '')
+
+
+def recurring_overview(groups, today):
+    """What the recurring charges cost per month in total (every active group, rent included), plus the ones that
+    newly entered (their first payment is within RECENT_MONTHS) and the ones that newly exited (stopped, last paid
+    within RECENT_MONTHS)."""
+    active = [g for g in groups or [] if not g.get('possibly_stopped')]
+    total = sum(float(g.get('current_amount') or 0) for g in active)
+    new, gone = [], []
+    for g in active:
+        first = as_date(g.get('first_payment_date'))
+        if first and 0 <= _months_ago(first, today) <= RECENT_MONTHS:
+            new.append(g)
+    for g in groups or []:
+        last = as_date(g.get('last_payment_date'))
+        if g.get('possibly_stopped') and last and 0 <= _months_ago(last, today) <= RECENT_MONTHS:
+            gone.append(g)
+    return {'total': total, 'count': len(active), 'new': new, 'gone': gone}
+
+
 def build_recurring(groups, today):
     """Next expected recurring charge this month. The page's cached next_expected is only as
     fresh as its last regeneration, so only its day of month is used, placed in today's month.
-    Charges whose day already passed are skipped; the rest of the month is summed below."""
+    Charges whose day already passed are skipped; the rest of the month is summed below.
+    Under it: the total monthly value of all recurring charges, and what newly entered / exited."""
+    ov = recurring_overview(groups, today)
+    lines = []
+    if ov['count']:
+        lines.append(f"סה״כ חוזר בחודש · {money(ov['total'])} ({count_text(ov['count'], 'חיוב אחד', 'חיובים')})")
+    tones = [None] * len(lines)
+    if ov['new']:
+        lines.append(f"נכנס לאחרונה · {_names(ov['new'])}")
+        tones.append(None)
+    if ov['gone']:
+        lines.append(f"יצא לאחרונה · {_names(ov['gone'])}")
+        tones.append('neg')
     upcoming = []
     for g in groups or []:
         d = as_date(g.get('next_expected'))
@@ -463,11 +505,14 @@ def build_recurring(groups, today):
                 upcoming.append((due, g))
     upcoming.sort(key=lambda x: x[0])
     if not upcoming:
-        return block('—', 'אין חיובים צפויים עוד החודש', dot='grey')
+        return block('—', 'אין חיובים צפויים עוד החודש', lines, dot='grey', extra={'detail_tones': tones})
     (d, g), rest = upcoming[0], upcoming[1:]
-    details = [count_text(len(rest), 'עוד חיוב אחד החודש', 'חיובים נוספים החודש') + ' · ' +
-               money(sum(float(r.get('current_amount') or 0) for _, r in rest))] if rest else []
-    return block(money(g.get('current_amount')), f"{g['name']} · ב-{short_date(d)}", details)
+    if rest:
+        lines.append(count_text(len(rest), 'עוד חיוב אחד החודש', 'חיובים נוספים החודש') + ' · ' +
+                     money(sum(float(r.get('current_amount') or 0) for _, r in rest)))
+        tones.append(None)
+    return block(money(g.get('current_amount')), f"{g['name']} · ב-{short_date(d)}", lines,
+                 extra={'detail_tones': tones})
 
 
 # ── Tagger ─────────────────────────────────────────────────────────────────

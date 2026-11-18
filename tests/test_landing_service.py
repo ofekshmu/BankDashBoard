@@ -379,7 +379,7 @@ def test_recurring_next_upcoming_non_stopped():
               {'name': 'ישן', 'current_amount': 10, 'next_expected': '2026-09-01', 'possibly_stopped': False}]
     b = ls.build_recurring(groups, TODAY)
     assert b['kpi'] == '310₪' and b['caption'] == 'ביטוח · ב-06.10.26'
-    assert b['details'] == ['עוד חיוב אחד החודש · 55₪']
+    assert 'עוד חיוב אחד החודש · 55₪' in b['details']
     assert ls.build_recurring([], TODAY)['dot'] == 'grey'
 
 
@@ -390,7 +390,7 @@ def test_recurring_uses_this_month_even_when_the_snapshot_dates_are_old():
               {'name': 'ביטוח', 'current_amount': 66, 'next_expected': '2026-09-28', 'possibly_stopped': False}]
     b = ls.build_recurring(groups, TODAY)
     assert b['kpi'] == '44₪' and b['caption'] == 'ספוטיפיי · ב-22.10.26'      # Google's 01.10 already passed
-    assert b['details'] == ['עוד חיוב אחד החודש · 66₪']
+    assert 'עוד חיוב אחד החודש · 66₪' in b['details']
 
 
 def test_recurring_clamps_the_day_and_handles_nothing_left_this_month():
@@ -504,3 +504,20 @@ def test_monthly_main_number_is_last_months_net_when_flow_exists():
     prev = b['extra']['flow'][0]
     assert b['kpi'] == ls.signed_money(prev['net'])
     assert b['extra']['period'] == prev['label'] and b['caption'] == 'נטו'
+
+
+def test_recurring_shows_total_monthly_value_and_what_entered_or_exited():
+    groups = [
+        {'name': 'נטפליקס', 'current_amount': 50, 'next_expected': '2026-10-20', 'possibly_stopped': False,
+         'first_payment_date': '2026-08-20', 'last_payment_date': '2026-09-20'},     # entered 2 months ago
+        {'name': 'ביטוח', 'current_amount': 300, 'next_expected': '2026-10-25', 'possibly_stopped': False,
+         'first_payment_date': '2024-01-25', 'last_payment_date': '2026-09-25'},     # old
+        {'name': 'חדר כושר', 'current_amount': 199, 'next_expected': '2026-10-05', 'possibly_stopped': True,
+         'first_payment_date': '2025-01-05', 'last_payment_date': '2026-08-05'},     # exited recently
+        {'name': 'ישן מאוד', 'current_amount': 70, 'next_expected': '2025-01-05', 'possibly_stopped': True,
+         'first_payment_date': '2023-01-05', 'last_payment_date': '2025-02-05'}]     # exited long ago: not mentioned
+    d = ls.build_recurring(groups, TODAY)['details']
+    assert d[0] == 'סה״כ חוזר בחודש · 350₪ (2 חיובים)'      # stopped groups are not part of the total
+    assert 'נכנס לאחרונה · נטפליקס' in d and 'יצא לאחרונה · חדר כושר' in d
+    assert not any('ישן מאוד' in x for x in d)
+    assert ls.build_recurring(groups, TODAY)['extra']['detail_tones'][d.index('יצא לאחרונה · חדר כושר')] == 'neg'

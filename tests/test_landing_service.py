@@ -530,3 +530,10 @@ def test_recurring_shows_total_monthly_value_and_what_entered_or_exited():
     assert 'נכנס לאחרונה · נטפליקס' in d and 'יצא לאחרונה · חדר כושר' in d
     assert not any('ישן מאוד' in x for x in d)
     assert ls.build_recurring(groups, TODAY)['extra']['detail_tones'][d.index('יצא לאחרונה · חדר כושר')] == 'neg'
+
+
+def test_main_bank_tile_leads_and_is_marked():
+    payload = {'accounts': {'Total': [('2026-10-01', 100)], 'Main Bank': [('2026-10-01', 10)], 'Big': [('2026-10-01', 90)]}}
+    tiles = ls.build_accounts(payload, None, {}, TODAY)['extra']['tiles']
+    assert [t['name'] for t in tiles] == ['Main Bank', 'Big'] and tiles[0]['main'] and not tiles[1]['main']
+

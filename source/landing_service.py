@@ -255,7 +255,8 @@ def build_accounts(payload, cash_map, rates, today):
         if name == 'Total' or not series or not series[-1][1]:
             continue
         bal = cash_ils if name == 'Cash' and cash_ils is not None else float(series[-1][1])
-        tiles.append((abs(bal), {'name': name, 'value': money(bal), 'alert': name in stale_since,
+        tiles.append((float('inf') if name == 'Main Bank' else abs(bal),     # the main bank leads, whatever it holds
+                      {'name': name, 'value': money(bal), 'alert': name in stale_since, 'main': name == 'Main Bank',
                                  'since': short_date(stale_since[name]) if name in stale_since else None}))
     tiles = [t for _, t in sorted(tiles, key=lambda x: -x[0])]
     return block(money(total), 'שווי כל החשבונות', [], dot='amber' if stale else 'green',

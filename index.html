@@ -225,6 +225,13 @@
               -webkit-mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
                       mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); }
     .ptrack::-webkit-scrollbar { display:none; }
+    /* roller: when the plants don't fit, the strip glides on its own (two copies, shifted by one set = seamless loop);
+       it pauses while the pointer is over it or a finger holds it. Reduced motion keeps the manual strip. */
+    .ptrack.roll { overflow:hidden; }
+    .pmove { display:flex; width:max-content; animation:proll var(--dur, 20s) linear infinite; }
+    .pmove .pchip { margin-inline-end:10px; }
+    .ptrack.roll:hover .pmove, .ptrack.roll:active .pmove, .ptrack.roll:focus-within .pmove { animation-play-state:paused; }
+    @keyframes proll { to { transform:translateX(50%); } }
     .pchip { flex:none; width:62px; display:flex; flex-direction:column; align-items:center; gap:4px; scroll-snap-align:start;
              color:inherit; text-decoration:none; }
     .pchip .pi { width:46px; height:46px; border-radius:13px; overflow:hidden; outline:2px solid var(--amber); outline-offset:2px; }
@@ -270,6 +277,14 @@
     .mini-kpi.alert { --mk:#fff3cf; border-color:var(--amber); }
     .mini-kpi.alert .mk-name { color:#7a5a00; display:flex; align-items:center; gap:4px; }
     .mini-kpi.alert .mk-name svg { flex:none; width:13px; height:13px; stroke:#b07d00; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+    /* accounts: bigger tiles, and the main bank is the largest one (a full row, a much bigger figure) */
+    .mini-kpis.big { grid-template-columns:repeat(auto-fill, minmax(116px, 1fr)); gap:8px; }
+    .mini-kpis.big .mini-kpi { padding:9px 11px; }
+    .mini-kpis.big .mk-name { font-size:12.5px; }
+    .mini-kpis.big .mk-val { font-size:18px; }
+    .mini-kpis.big .mini-kpi.main { grid-column:1 / -1; padding:12px 14px; }
+    .mini-kpis.big .mini-kpi.main .mk-name { font-size:14px; font-weight:600; }
+    .mini-kpis.big .mini-kpi.main .mk-val { font-size:28px; font-weight:700; }
     .mk-val.masked { filter:blur(7px); user-select:none; -webkit-user-select:none; transition:filter .25s ease; }
     .mini-kpi .mk-name { font-size:11.5px; font-weight:500; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mini-kpi .mk-val { font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
@@ -726,7 +741,7 @@
         '<li' + (dTones[i] === 'neg' ? ' class="neg"' : '') + ' title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '') +
       (id === 'monthly' ? flowHtml((d.extra || {}).flow) : '') +
       (id === 'cards' ? pieHtml((d.extra || {}).pie) : '') +
-      miniKpisHtml((d.extra || {}).tiles);
+      miniKpisHtml((d.extra || {}).tiles, id === 'accounts');
     const kpiEl = body.querySelector('.kpi.kpi-ltr');
     if (kpiEl && window.rollNumber) rollNumber(kpiEl, d.kpi, 'landing:' + id);   /* digits roll to the new figure */
     if (id === 'accounts') applyAccountsMask();
@@ -775,6 +790,21 @@
     return '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="1" y="1" width="46" height="46" rx="13" fill="' + esc(p.color || '#1e9d8b') + '"/>' +
       '<g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + g + '</g></svg>';
   }
+  /** Turn an overflowing strip into a seamless roller. No-op when everything fits or motion is reduced. */
+  function startRoll(track) {
+    if (!track || !track.isConnected || track.classList.contains('roll')) return;
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const chips = Array.from(track.querySelectorAll('.pchip'));
+    if (!chips.length || track.scrollWidth <= track.clientWidth + 2) return;
+    const move = document.createElement('div');
+    move.className = 'pmove';
+    chips.forEach(c => move.appendChild(c));
+    chips.forEach(c => { const k = c.cloneNode(true); k.setAttribute('aria-hidden', 'true'); k.tabIndex = -1; move.appendChild(k); });
+    track.appendChild(move);
+    track.classList.add('roll');
+    move.style.setProperty('--dur', Math.max(10, move.scrollWidth / 2 / 36).toFixed(1) + 's');   /* ~36 px a second */
+  }
+
   /** Strip of the plants to water (extra.plants, overdue first): a swipeable row, its cut edges faded. */
   function plantStrip(plants, href) {
     const wrap = document.createElement('div');
@@ -785,6 +815,8 @@
           '<span class="pi">' + plantBadgeHtml(p) + '</span><span class="pn">' + esc(p.name) + '</span>' +
           '<span class="ps">' + (p.status === 'overdue' ? 'באיחור' : 'היום') + '</span></a>').join('') + '</div>' +
       '';
+    /* too many plants to fit: roll them (a frame later, once the strip is in the page and can be measured) */
+    requestAnimationFrame(() => startRoll(wrap.querySelector('.ptrack')));
     /* mouse wheel scrolls the strip sideways; at either end the page scrolls as usual (RTL: forward = negative scrollLeft) */
     const track = wrap.querySelector('.ptrack');
     track.addEventListener('wheel', e => {
@@ -824,10 +856,10 @@
   }
 
   /** Small KPI boxes inside a block (extra.tiles: [{name, value, color}]), e.g. one per bill. */
-  function miniKpisHtml(tiles) {
+  function miniKpisHtml(tiles, big) {
     if (!tiles || !tiles.length) return '';
-    return '<div class="mini-kpis">' + tiles.map(t =>
-      '<div class="mini-kpi' + (t.color ? ' coloured' : '') + (t.alert ? ' alert' : '') + '"' + (t.color ? ' style="--mk:' + esc(t.color) + '"' : '') + '>' +
+    return '<div class="mini-kpis' + (big ? ' big' : '') + '">' + tiles.map(t =>
+      '<div class="mini-kpi' + (t.color ? ' coloured' : '') + (t.alert ? ' alert' : '') + (t.main ? ' main' : '') + '"' + (t.color ? ' style="--mk:' + esc(t.color) + '"' : '') + '>' +
         '<span class="mk-name" title="' + esc(t.name + (t.since ? ' · לא עודכן מאז ' + t.since : '')) + '">' +
           (t.alert ? '<svg viewBox="0 0 24 24" role="img" aria-label="לא עודכן"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18.5h.01"/></svg>' : '') +
           esc(t.name) + '</span>' +

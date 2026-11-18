@@ -785,6 +785,17 @@
           '<span class="pi">' + plantBadgeHtml(p) + '</span><span class="pn">' + esc(p.name) + '</span>' +
           '<span class="ps">' + (p.status === 'overdue' ? 'באיחור' : 'היום') + '</span></a>').join('') + '</div>' +
       '';
+    /* mouse wheel scrolls the strip sideways; at either end the page scrolls as usual (RTL: forward = negative scrollLeft) */
+    const track = wrap.querySelector('.ptrack');
+    track.addEventListener('wheel', e => {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;           /* a horizontal gesture is already native */
+      const max = track.scrollWidth - track.clientWidth;
+      if (max <= 1) return;
+      const forward = e.deltaY > 0, pos = -track.scrollLeft;         /* 0 at the start, `max` at the end */
+      if ((forward && pos >= max - 1) || (!forward && pos <= 1)) return;
+      e.preventDefault();
+      track.scrollBy({ left: -e.deltaY, behavior: 'auto' });
+    }, { passive: false });
     return wrap;
   }
 

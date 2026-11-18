@@ -213,6 +213,9 @@ def test_housing_block_lists_the_rate_of_both_apartments():
     r = ls.build_housing(full, _mona(derived={'annual_return_pct': 6.0, 'profit': -3000}))['extra']['rates']
     assert (r[0]['profit'], r[0]['profit_tone']) == ('+100,000₪', 'pos')
     assert (r[1]['profit'], r[1]['profit_tone']) == ('-3,000₪', 'neg')
+    g = ls.build_housing(dict(full, apartment_price=1_000_000, apartment_appreciated=1_150_000),
+                         _mona(derived={'annual_return_pct': 6.0, 'profit': 1, 'appreciation': 12_000}))['extra']['rates']
+    assert (g[0]['growth'], g[1]['growth']) == ('+150,000₪', '+12,000₪')
     assert ls.build_housing({}, _mona())['extra']['rates'][0]['value'] == '—'
 
 

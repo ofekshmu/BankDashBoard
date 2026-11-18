@@ -269,11 +269,14 @@ def build_cards(cards, month=None):
 
 
 # ── Housing ────────────────────────────────────────────────────────────────
-def _rate_entry(name, prop, value, tone=None, note=None, profit=None):
+def _rate_entry(name, prop, value, tone=None, note=None, profit=None, growth=None):
     """`profit` is the apartment's net gain in ILS (the growth in money, which the rate alone doesn't show)."""
     return {'name': name, 'prop': prop, 'value': value, 'tone': tone, 'note': note,
             'profit': None if profit is None else signed_money(profit),
-            'profit_tone': None if profit is None or round(profit) == 0 else ('neg' if profit < 0 else 'pos')}
+            'profit_tone': None if profit is None or round(profit) == 0 else ('neg' if profit < 0 else 'pos'),
+            # appreciation of the apartment's value itself (what the rate is a rate of)
+            'growth': None if growth is None else signed_money(growth),
+            'growth_tone': None if growth is None or round(growth) == 0 else ('neg' if growth < 0 else 'pos')}
 
 
 def housing_rates(m, mona):
@@ -284,14 +287,17 @@ def housing_rates(m, mona):
     sh_profit = ((m.get('equity_appreciated') or 0) + (m.get('alltime_income') or 0) - (m.get('net_invested') or 0)
                  if m.get('net_invested') is not None else None)
     rates = [_rate_entry('שלום שבזי 7', 'shabazi', pct(sh) if sh is not None else '—',
-                         None if sh is None else ('neg' if sh < 0 else 'pos'), profit=sh_profit)]
+                         None if sh is None else ('neg' if sh < 0 else 'pos'), profit=sh_profit,
+                         growth=(m['apartment_appreciated'] - m['apartment_price']
+                                 if m.get('apartment_appreciated') is not None and m.get('apartment_price') is not None else None))]
     d = (mona or {}).get('derived') or {}
     m_profit = d.get('profit') if (mona or {}).get('has_price') else None
+    m_growth = d.get('appreciation') if (mona or {}).get('has_price') else None
     annual, total = d.get('annual_return_pct'), d.get('total_return_pct')
     if annual is not None:
-        rates.append(_rate_entry('מונה', 'mona', pct(annual), 'neg' if annual < 0 else 'pos', profit=m_profit))
+        rates.append(_rate_entry('מונה', 'mona', pct(annual), 'neg' if annual < 0 else 'pos', profit=m_profit, growth=m_growth))
     elif total is not None and (mona or {}).get('has_price'):
-        rates.append(_rate_entry('מונה', 'mona', pct(total), 'neg' if total < 0 else 'pos', 'כוללת', profit=m_profit))
+        rates.append(_rate_entry('מונה', 'mona', pct(total), 'neg' if total < 0 else 'pos', 'כוללת', profit=m_profit, growth=m_growth))
     else:
         rates.append(_rate_entry('מונה', 'mona', '—'))
     return rates

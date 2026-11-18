@@ -209,7 +209,8 @@
     .rate .rv.pos { color:var(--green); } .rate .rv.neg { color:var(--red); }
     .rate .rt { font-size:10.5px; color:var(--muted); }
     /* the growth in money, under the rate: a rate alone doesn't show how much it is */
-    .rate .rg { display:flex; justify-content:space-between; align-items:baseline; gap:6px; margin-top:6px; padding-top:6px; border-top:1px solid var(--border); font-size:12px; }
+    .rate .rg { display:flex; justify-content:space-between; align-items:baseline; gap:6px; margin-top:4px; font-size:12px; }
+    .rate .rt + .rg { margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
     .rate .rgl { color:var(--muted); }
     .rate .rgv { font-weight:600; font-variant-numeric:tabular-nums; }
     .rate .rgv.pos { color:var(--green); } .rate .rgv.neg { color:var(--red); }
@@ -752,6 +753,7 @@
       '<div class="rate" data-prop="' + esc(r.prop) + '"><span class="rn">' + esc(r.name) + '</span>' +
       '<span class="rv ' + (r.tone || '') + '" dir="ltr">' + esc(r.value) + '</span>' +
       '<span class="rt">תשואה שנתית' + (r.note ? ' · ' + esc(r.note) : '') + '</span>' +
+      (r.growth ? '<span class="rg"><span class="rgl">עליית ערך</span><span class="rgv ' + (r.growth_tone || '') + '" dir="ltr">' + esc(r.growth) + '</span></span>' : '') +
       (r.profit ? '<span class="rg"><span class="rgl">רווח נקי</span><span class="rgv ' + (r.profit_tone || '') + '" dir="ltr">' + esc(r.profit) + '</span></span>' : '') +
       '</div>').join('') + '</div>';
   }

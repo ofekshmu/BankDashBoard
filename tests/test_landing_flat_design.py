@@ -54,3 +54,9 @@ def test_alerts_strip_is_one_compact_wrapping_bar():
     assert 'flex-wrap:wrap' in box and 'width:fit-content' in box
     chip = re.search(r'\.att-item \{[^}]*\}', HTML).group(0)
     assert 'inline-flex' in chip              # a chip, not a full-width row
+
+
+def test_no_block_shows_rows_of_text_only_small_kpi_tiles():
+    for old in ('<ul class="details"', "class=\"flow\"", 'class="pie-legend"', 'class="rg"'):
+        assert old not in HTML                       # details, the flow table, the pie legend and housing lines are tiles now
+    assert 'function statTiles' in HTML and 'function flowTiles' in HTML

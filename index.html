@@ -8,14 +8,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    :root { --navy:#1e2a4a; --teal:#1e9d8b; --bg:#f4f6f9; --white:#fff; --border:#c6cedb; --canvas:#e0e6ef;
+    :root { --navy:#1e2a4a; --teal:#4a35e0; --bg:#f4f6f9; --white:#fff; --border:rgba(74,53,224,.16);
+            /* frosted-glass look: a pale lavender-to-sky canvas, translucent rounded cards, an indigo accent */
+            --canvas:linear-gradient(160deg,#eef0fc 0%,#e0e7fb 50%,#cfe0fa 100%);
+            --glass:rgba(255,255,255,.66); --glass-line:rgba(255,255,255,.9);
+            --shadow-card:0 8px 28px rgba(60,50,170,.10); --shadow-card-hover:0 12px 34px rgba(60,50,170,.16);
             --muted:#6b7590; --green:#22a06b; --amber:#e8a317; --red:#d64545; --grey:#b7bfcc;
-            --teal-light:#e6f5f2; --teal-dark:#167a6c; --invest:#e8a020;
-            /* radii step down with the size of the part; depth comes from hairline borders, shadows only float above the page */
-            --r-card:10px; --r-input:8px; --r-badge:6px; --shadow-overlay:0 8px 24px rgba(0,0,0,.18); }
+            --teal-light:#e9e6fc; --teal-dark:#3426b8; --invest:#e8a020;
+            --r-card:22px; --r-input:14px; --r-badge:10px; --shadow-overlay:0 12px 32px rgba(40,30,140,.22); }
     * { box-sizing:border-box; margin:0; padding:0; }
     html, body { background:var(--bg); color:var(--ink, var(--navy)); font-family:'Heebo',system-ui,sans-serif; }
-    body { min-height:100vh; overflow-x:hidden; background:var(--page-bg, var(--canvas)); }
+    body { min-height:100vh; overflow-x:hidden; background:var(--page-bg, var(--canvas)); background-attachment:fixed; }
     [hidden] { display:none !important; }
 
     /* ── Gate ── */
@@ -43,7 +46,8 @@
     .dash-head { display:flex; align-items:center; justify-content:space-between;
                  gap:12px; flex-wrap:wrap; max-width:1168px; width:calc(100% - 32px); margin:16px auto 0;
                  padding:16px 20px; border-radius:var(--r-card); color:var(--ink, var(--navy));
-                 background:var(--white); border:1px solid var(--border); }
+                 background:var(--glass); border:1px solid var(--glass-line); box-shadow:var(--shadow-card);
+                 -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
     .dash-head h1 { font-size:20px; font-weight:700; }
     .dash-head .sub { font-size:13px; color:var(--muted); margin-top:2px; }
     .head-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
@@ -87,7 +91,8 @@
 
     /* ── Attention strip ── */
     .attention { max-width:1200px; margin:0 auto; padding:8px 16px 0; }
-    .att-box { background:var(--white); border-radius:var(--r-card); border:1px solid var(--border); padding:12px 14px;
+    .att-box { background:var(--glass); border-radius:var(--r-card); border:1px solid var(--glass-line); box-shadow:var(--shadow-card);
+               -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); padding:12px 14px;
                border-right:3px solid var(--amber); }
     .att-box.has-red { border-right-color:var(--red); }
     .att-box.ok { border-right-color:var(--teal); }
@@ -140,10 +145,10 @@
             max-width:1200px; margin:0 auto; padding:14px 16px 20px; }
     .card { position:relative; display:flex; flex-direction:column; gap:6px; min-width:0; background:var(--white);
             border-radius:var(--r-card); padding:14px 16px; color:inherit; text-decoration:none;
-            border:1px solid var(--border); font-variant-numeric:tabular-nums;
-            transition:border-color .15s, background .15s; }
-    /* hover: a quiet change of border and surface, never a shadow */
-    .card:hover { border-color:color-mix(in srgb, var(--ink, var(--navy)) 28%, var(--border)); background:color-mix(in srgb, var(--bg) 45%, var(--white)); }
+            background:var(--glass); border:1px solid var(--glass-line); box-shadow:var(--shadow-card);
+            -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); font-variant-numeric:tabular-nums;
+            transition:box-shadow .2s, background .2s; }
+    .card:hover { box-shadow:var(--shadow-card-hover); background:rgba(255,255,255,.8); }
     .card-top { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--muted); }
     /* an icon is navigation, not decoration: one muted tone, no tile (only on the shortcut tiles) */
     .ico { flex:none; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; }
@@ -189,7 +194,7 @@
     .month-row { display:flex; flex-direction:column; gap:8px; margin-top:8px; position:relative; z-index:1; }
     .mstrip { display:flex; gap:6px; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none;
               overscroll-behavior-x:contain; padding:4px calc(50% - 51px); outline:none; border-radius:var(--r-input);
-              background:var(--bg); border:1px solid var(--border); }
+              background:rgba(255,255,255,.55); border:1px solid var(--border); }
     .mstrip::-webkit-scrollbar { display:none; }
     .mstrip:focus-visible { box-shadow:0 0 0 2px var(--teal); }
     .mchip { flex:none; width:102px; scroll-snap-align:center; padding:7px 4px; border:1px solid transparent;
@@ -208,13 +213,13 @@
     .flow .fl { color:var(--muted); white-space:nowrap; }
     .flow .fv { font-weight:700; text-align:left; font-variant-numeric:tabular-nums; white-space:nowrap; }
     .flow .fv.pos { color:var(--teal-dark); } .flow .fv.neg { color:var(--red); } .flow .fv.inv { color:var(--invest); }
-    .kpi.kpi-pos { color:var(--green); } .kpi.kpi-neg { color:var(--red); }   /* extra.tone, e.g. Spotify net */
+    .kpi.kpi-pos { color:var(--teal-dark); } .kpi.kpi-neg { color:var(--red); }   /* extra.tone, e.g. Spotify net */
     .details li.neg { color:var(--red); font-weight:600; }                    /* extra.detail_tones, e.g. debtors */
     .kpi.kpi-wrap { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere;
                     font-size:22px; line-height:1.25; }                          /* timeline: full event name */
     /* Small KPI boxes inside a block (extra.tiles), e.g. bills per type */
     .mini-kpis { display:grid; grid-template-columns:repeat(auto-fill, minmax(82px, 1fr)); gap:6px; margin-top:10px; }
-    .mini-kpi { --mk:var(--bg); display:flex; flex-direction:column; gap:2px; min-width:0; padding:6px 9px;
+    .mini-kpi { --mk:rgba(255,255,255,.6); display:flex; flex-direction:column; gap:2px; min-width:0; padding:6px 9px;
                 background:var(--mk); color:var(--ink, var(--navy)); border:1px solid var(--border); border-radius:var(--r-badge); }
     /* a tile that carries its own colour (each bill type) is filled with it again */
     .mini-kpi.coloured { color:#fff; border-color:transparent; text-shadow:0 1px 1px rgba(0,0,0,.18); }

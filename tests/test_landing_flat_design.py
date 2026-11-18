@@ -6,19 +6,20 @@ from pathlib import Path
 HTML = (Path(__file__).resolve().parent.parent / 'index.html').read_text(encoding='utf-8')
 
 
-def test_no_gradients_anywhere():
-    assert 'gradient' not in re.sub(r'/\*.*?\*/', '', HTML, flags=re.S)
+def test_only_the_page_canvas_is_a_gradient():
+    body = re.sub(r'/\*.*?\*/', '', HTML, flags=re.S)
+    assert body.count('linear-gradient') == 1 and '--canvas:linear-gradient' in body
 
 
 def test_shadows_only_on_floating_layers_and_focus_rings():
-    lines = [l for l in HTML.splitlines() if 'box-shadow' in l and 'none' not in l]
+    lines = [l for l in HTML.splitlines() if 'box-shadow:' in l and 'none' not in l]
     for l in lines:
-        assert any(k in l for k in ('shadow-overlay', 'focus-visible', '-4px 0 24px')), l
+        assert any(k in l for k in ('shadow-overlay', 'shadow-card', 'focus-visible', '-4px 0 24px')), l
 
 
-def test_cards_are_hairline_with_no_lift_on_hover():
+def test_cards_are_glass_with_no_lift_on_hover():
     card = re.search(r'\.card \{ position:relative[^}]*\}', HTML).group(0)
-    assert 'var(--border)' in card and 'shadow' not in card
+    assert 'var(--glass)' in card and 'var(--shadow-card)' in card
     assert 'translateY' not in HTML
 
 

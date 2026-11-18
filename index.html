@@ -300,7 +300,6 @@
     .trend .tp { font-weight:700; color:var(--tc); font-variant-numeric:tabular-nums; white-space:nowrap; }
     .trend .tw { color:var(--muted); white-space:nowrap; }
     .card-link { flex:1; display:flex; flex-direction:column; gap:6px; color:inherit; text-decoration:none; }
-    .updated { margin-top:auto; padding-top:6px; font-size:11px; color:var(--muted); }
     .card-link::after { content:''; position:absolute; inset:0; border-radius:var(--r-card); }
     /* Blocks without live data: compact shortcut tiles under the KPI grid */
     .tiles-wrap { max-width:1200px; margin:0 auto; padding:6px 16px 18px; }
@@ -343,6 +342,7 @@
       <div>
         <h1 id="greeting"></h1>
         <div class="sub" id="today"></div>
+        <div class="sub" id="updatedAll" aria-live="polite"></div>
       </div>
     </div>
     <div class="head-actions">
@@ -625,7 +625,6 @@
       ? '<a class="card-link" href="' + b.href + '"' + (b.prop ? ' data-hs-prop="' + b.prop + '"' : '') + '>' +
           '<div class="card-top"><span class="title">' + esc(b.title) + '</span>' + (id === 'accounts' ? maskBtnHtml() : '') + '<span class="dot" role="img" aria-label="' + DOT_TEXT.grey + '"></span></div>' +
           '<div class="body"><div class="skel"></div><div class="skel s2"></div></div>' +
-          '<div class="updated"></div>' +
         '</a>'
       : '<a class="card-link tile-link" href="' + b.href + '">' + icon(id) +
           '<div><div class="card-top"><span class="title">' + esc(b.title) + '</span></div>' +
@@ -745,21 +744,19 @@
     if (kpiEl && window.rollNumber) rollNumber(kpiEl, d.kpi, 'landing:' + id);   /* digits roll to the new figure */
     if (id === 'accounts') applyAccountsMask();
     if (id === 'plants' && (d.extra || {}).plants) {
-      const tail = el.querySelector('.edit-ctl'), upd = el.querySelector('.updated');
+      const tail = el.querySelector('.edit-ctl');
       el.insertBefore(plantStrip(d.extra.plants, BLOCK_BY_ID.plants.href), tail);
-      if (upd) el.insertBefore(upd, tail);   /* the update time stays the very last line */
     }
     if (id === 'monthly') {
       renderMonthPicker(el, d.extra || {});
       /* below the month strip: the alerts, then (very last) the update time */
-      const tail = el.querySelector('.edit-ctl'), upd = el.querySelector('.updated');
+      const tail = el.querySelector('.edit-ctl');
       if ((d.details || []).length) {
         const ul = document.createElement('ul');
         ul.className = 'details month-alerts';
         ul.innerHTML = d.details.map(x => '<li title="' + esc(x) + '">' + rich(x) + '</li>').join('');
         el.insertBefore(ul, tail);
       }
-      if (upd) el.insertBefore(upd, tail);
     }
     paintAge(el, id);
   }
@@ -992,11 +989,14 @@
     const h = Math.floor(min / 60);
     return h === 1 ? 'עודכן לפני שעה' : 'עודכן לפני ' + h + ' שעות';
   }
-  function paintAge(el, id) {
-    const out = el.querySelector('.updated'), entry = blockData[id];
+  /** One freshness line for the whole page, in the header: how old the oldest of the shown blocks' data is. */
+  function paintGlobalAge() {
+    const out = document.getElementById('updatedAll');
     if (!out) return;
-    out.textContent = refreshing ? 'מרענן…' : entry && entry.at ? ageText(entry.at) : '';
+    const ats = visibleLiveIds().map(id => blockData[id] && blockData[id].at).filter(Boolean);
+    out.textContent = refreshing ? 'מרענן…' : ats.length ? ageText(Math.min(...ats)) : '';
   }
+  function paintAge() { paintGlobalAge(); }   /* the cards no longer carry their own "updated" line */
   /** Repaint the freshness label of every listed block that is on screen. */
   function paintAges(ids) {
     ids.forEach(id => { const el = document.getElementById('blk-' + id); if (el) paintAge(el, id); });

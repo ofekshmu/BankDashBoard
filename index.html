@@ -260,11 +260,15 @@
     .mini-kpi .mk-name { font-size:11.5px; font-weight:500; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mini-kpi .mk-val { font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
     /* Accounts: 3-month sparkline + change rate */
-    .trend { margin-top:8px; --tc:var(--teal-dark); } .trend.down { --tc:var(--red); }
-    .trend svg { display:block; width:100%; height:38px; overflow:visible; }
+    .trend { --tc:var(--teal-dark); } .trend.down { --tc:var(--red); }
+    /* the figure and its line plot on one row; the change since the window start sits under the number */
+    .kpi-row { display:flex; align-items:center; gap:14px; min-width:0; }
+    .kpi-row .kpi { flex:none; max-width:62%; }
+    .kpi-row .spark { flex:1; min-width:64px; }
+    .trend svg { display:block; width:100%; height:44px; overflow:visible; }
     .trend .tl { fill:none; stroke:var(--tc); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
     .trend .te { fill:var(--tc); }
-    .trend .tr { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-top:4px; font-size:12px; }
+    .trend .tr { display:flex; justify-content:flex-start; align-items:baseline; gap:8px; margin-top:2px; font-size:12px; }
     .trend .tp { font-weight:700; color:var(--tc); font-variant-numeric:tabular-nums; white-space:nowrap; }
     .trend .tw { color:var(--muted); white-space:nowrap; }
     .card-link { flex:1; display:flex; flex-direction:column; gap:6px; color:inherit; text-decoration:none; }
@@ -687,6 +691,7 @@
     const tone = { pos: ' kpi-pos', neg: ' kpi-neg' }[(d.extra || {}).tone] || '';
     const wrap = id === 'timeline' ? ' kpi-wrap' : '';   /* event names show in full */
     const dTones = (d.extra || {}).detail_tones || [];
+    const tp = id === 'accounts' ? trendParts((d.extra || {}).trend) : null;
     /* the month is already the big heading: never repeat it in the caption */
     let caption = d.caption || '';
     if (id === 'monthly' && (d.extra || {}).period) caption = caption.split(d.extra.period).join('').replace(/^[\s·\-—]+|[\s·\-—]+$/g, '') || caption;
@@ -697,12 +702,14 @@
     }
     body.innerHTML =
       (id === 'monthly' && (d.extra || {}).period ? '<div class="period">' + esc(d.extra.period) + '</div>' : '') +
+      (tp ? '<div class="kpi-row">' : '') +
       '<div class="kpi' + ltr + tone + wrap + '" data-val="' + esc(d.kpi) + '" title="' + esc(d.kpi) + '">' + esc(d.kpi) + '</div>' +
+      (tp ? tp.chart + '</div>' : '') +
       '<div class="caption" title="' + esc(caption) + '">' + rich(caption) + '</div>' +
+      (tp ? tp.delta : '') +
       ((d.details || []).length && id !== 'monthly' && !(id === 'cards' && (d.extra || {}).pie) ? '<ul class="details">' + d.details.map((x, i) =>
         '<li' + (dTones[i] === 'neg' ? ' class="neg"' : '') + ' title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '') +
       (id === 'monthly' ? flowHtml((d.extra || {}).flow) : '') +
-      (id === 'accounts' ? trendHtml((d.extra || {}).trend) : '') +
       (id === 'cards' ? pieHtml((d.extra || {}).pie) : '') +
       miniKpisHtml((d.extra || {}).tiles);
     const kpiEl = body.querySelector('.kpi.kpi-ltr');
@@ -804,8 +811,8 @@
 
   /** Accounts value over the last 3 months (extra.trend) as a sparkline — x by date, y fitted
    *  to the range — plus the change since the window start in % and ₪. Green up, red down. */
-  function trendHtml(t) {
-    if (!t || !t.points || t.points.length < 2) return '';
+  function trendParts(t) {
+    if (!t || !t.points || t.points.length < 2) return null;
     const W = 200, H = 38, P = 3;
     const xs = t.points.map(p => Date.parse(p[0])), ys = t.points.map(p => p[1]);
     const x0 = xs[0], xr = (xs[xs.length - 1] - x0) || 1;
@@ -818,14 +825,14 @@
     const amtTxt = (t.change >= 0 ? '+' : '') + shekels(t.change);
     const since = new Date(t.points[0][0]).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
     const words = 'מגמת החשבונות מ-' + since + ': ' + (down ? 'ירידה' : 'עלייה') + (t.change_pct == null ? '' : ' של ' + Math.abs(t.change_pct).toFixed(1) + '%');
-    return '<div class="trend' + (down ? ' down' : '') + '" title="' + esc(t.points[0][0] + ' → ' + t.points[t.points.length - 1][0]) + '">' +
+    const cls = 'trend' + (down ? ' down' : '');
+    return { chart: '<div class="' + cls + ' spark" title="' + esc(t.points[0][0] + ' → ' + t.points[t.points.length - 1][0]) + '">' +
       '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" dir="ltr" role="img" aria-label="' + esc(words) + '">' +
         '<polyline class="tl" points="' + line + '" vector-effect="non-scaling-stroke"/>' +
         '<circle class="te" cx="' + end[0].toFixed(1) + '" cy="' + end[1].toFixed(1) + '" r="2.5"/>' +
-      '</svg>' +
-      '<div class="tr"><span class="tw">מול ' + esc(since) + '</span>' +
-        '<span class="tp" dir="ltr">' + (down ? '▼ ' : '▲ ') + pctTxt + '(' + amtTxt + ')</span></div>' +
-    '</div>';
+      '</svg></div>',
+      delta: '<div class="' + cls + '"><div class="tr"><span class="tp" dir="ltr">' + (down ? '▼ ' : '▲ ') + pctTxt + '(' + amtTxt + ')</span>' +
+        '<span class="tw">מול ' + esc(since) + '</span></div></div>' };
   }
 
   /** Net income and net investments of the previous and the current month (extra.flow), as a small table. */

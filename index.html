@@ -8,14 +8,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    :root { --navy:#1e2a4a; --teal:#4a35e0; --bg:#f4f6f9; --white:#fff; --border:rgba(74,53,224,.16);
-            /* frosted-glass look: a pale lavender-to-sky canvas, translucent rounded cards, an indigo accent */
-            --canvas:linear-gradient(160deg,#eef0fc 0%,#e0e7fb 50%,#cfe0fa 100%);
+    :root { --navy:#1e2a4a; --teal:#1e9d8b; --bg:#f4f6f9; --white:#fff; --border:rgba(30,90,100,.16);
+            /* frosted-glass look: a pale mint-to-sky canvas, translucent rounded cards, the app's teal accent */
+            --canvas:linear-gradient(160deg,#eef7f5 0%,#e1eff0 50%,#d3e5ee 100%);
             --glass:rgba(255,255,255,.66); --glass-line:rgba(255,255,255,.9);
-            --shadow-card:0 8px 28px rgba(60,50,170,.10); --shadow-card-hover:0 12px 34px rgba(60,50,170,.16);
+            --shadow-card:0 8px 28px rgba(20,70,90,.10); --shadow-card-hover:0 12px 34px rgba(20,70,90,.16);
             --muted:#6b7590; --green:#22a06b; --amber:#e8a317; --red:#d64545; --grey:#b7bfcc;
-            --teal-light:#e9e6fc; --teal-dark:#3426b8; --invest:#e8a020;
-            --r-card:22px; --r-input:14px; --r-badge:10px; --shadow-overlay:0 12px 32px rgba(40,30,140,.22); }
+            --teal-light:#e6f5f2; --teal-dark:#167a6c; --invest:#e8a020;
+            --r-card:22px; --r-input:14px; --r-badge:10px; --shadow-overlay:0 12px 32px rgba(10,50,70,.22); }
     * { box-sizing:border-box; margin:0; padding:0; }
     html, body { background:var(--bg); color:var(--ink, var(--navy)); font-family:'Heebo',system-ui,sans-serif; }
     body { min-height:100vh; overflow-x:hidden; background:var(--page-bg, var(--canvas)); background-attachment:fixed; }
@@ -213,7 +213,7 @@
     .flow .fl { color:var(--muted); white-space:nowrap; }
     .flow .fv { font-weight:700; text-align:left; font-variant-numeric:tabular-nums; white-space:nowrap; }
     .flow .fv.pos { color:var(--teal-dark); } .flow .fv.neg { color:var(--red); } .flow .fv.inv { color:var(--invest); }
-    .kpi.kpi-pos { color:var(--teal-dark); } .kpi.kpi-neg { color:var(--red); }   /* extra.tone, e.g. Spotify net */
+    .kpi.kpi-pos { color:var(--green); } .kpi.kpi-neg { color:var(--red); }   /* extra.tone, e.g. Spotify net */
     .details li.neg { color:var(--red); font-weight:600; }                    /* extra.detail_tones, e.g. debtors */
     .kpi.kpi-wrap { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere;
                     font-size:22px; line-height:1.25; }                          /* timeline: full event name */

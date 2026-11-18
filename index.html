@@ -196,7 +196,8 @@
              border-radius:var(--r-input); background:transparent; color:var(--muted); font:inherit; font-size:12.5px;
              cursor:pointer; white-space:nowrap; transition:background .15s, color .15s; }
     .mchip:hover { color:var(--ink, var(--navy)); }
-    .mchip.sel { background:var(--white); border-color:var(--teal); color:var(--teal-dark); font-weight:700; }
+    .mchip.sel { background:var(--teal); border-color:var(--teal); color:var(--on-accent, #fff); font-weight:700; }
+    .mchip.sel:hover { color:var(--on-accent, #fff); }
 
     /* Housing: the annual rate of each apartment, side by side */
     .rates { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px; }

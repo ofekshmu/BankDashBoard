@@ -481,6 +481,8 @@
     const known = id => Object.prototype.hasOwnProperty.call(BLOCK_BY_ID, id);
     const order = (saved && Array.isArray(saved.order) ? saved.order : []).filter((id, i, a) => known(id) && a.indexOf(id) === i);
     DEFAULT_ORDER.forEach(id => { if (!order.includes(id)) order.push(id); });
+    /* accounts (right-most, the main figure) and the monthly analysis (next to it) always lead, whatever order was saved */
+    ['monthly', 'accounts'].forEach(id => { order.splice(order.indexOf(id), 1); order.unshift(id); });
     const hidden = (saved && Array.isArray(saved.hidden) ? saved.hidden : []).filter(known);
     return { order, hidden };
   }

@@ -59,6 +59,9 @@
                 font-size:13px; cursor:pointer; transition:background .15s, border-color .15s; }
     .head-btn:hover { background:var(--bg); }
     .head-btn svg { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+    /* sign out: filled with a soft red so it reads as the way out, distinct from the teal active controls */
+    #signOutBtn { background:color-mix(in srgb, var(--red) 12%, #fff); border-color:color-mix(in srgb, var(--red) 40%, transparent); color:var(--red); font-weight:600; }
+    #signOutBtn:hover { background:color-mix(in srgb, var(--red) 20%, #fff); }
     .head-btn.on { background:var(--teal); border-color:var(--teal); color:var(--on-accent, #fff); font-weight:600; }
     #refreshBtn, #ham-btn { padding:7px 9px; }
     .head-title { display:flex; align-items:center; gap:12px; }
@@ -760,6 +763,7 @@
       '<span class="rv ' + (r.tone || '') + '" dir="ltr">' + esc(r.value) + '</span>' +
       '<span class="rt">תשואה שנתית' + (r.note ? ' · ' + esc(r.note) : '') + '</span>' +
       (r.growth ? '<span class="rg"><span class="rgl">עליית ערך</span><span class="rgv ' + (r.growth_tone || '') + '" dir="ltr">' + esc(r.growth) + '</span></span>' : '') +
+      (r.month_net ? '<span class="rg"><span class="rgl">נטו החודש</span><span class="rgv ' + (r.month_net_tone || '') + '" dir="ltr">' + esc(r.month_net) + '</span></span>' : '') +
       (r.profit ? '<span class="rg"><span class="rgl">רווח נקי</span><span class="rgv ' + (r.profit_tone || '') + '" dir="ltr">' + esc(r.profit) + '</span></span>' : '') +
       '</div>').join('') + '</div>';
   }

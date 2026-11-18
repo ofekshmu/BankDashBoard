@@ -6392,7 +6392,7 @@ def _landing_housing(today):
     data, status = _view_json(housing_data_api())
     if status != 200:
         raise RuntimeError((data or {}).get('error', 'housing data failed'))
-    return _landing_svc.build_housing(data.get('mortgage'), _landing_mona_payload(today))
+    return _landing_svc.build_housing(data.get('mortgage'), _landing_mona_payload(today), today)
 
 
 _landing_register('monthly', _landing_monthly)

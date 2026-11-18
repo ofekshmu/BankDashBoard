@@ -219,6 +219,12 @@ def test_housing_block_lists_the_rate_of_both_apartments():
     g = ls.build_housing(dict(full, apartment_price=1_000_000, apartment_appreciated=1_150_000),
                          _mona(derived={'annual_return_pct': 6.0, 'profit': 1, 'appreciation': 12_000}))['extra']['rates']
     assert (g[0]['growth'], g[1]['growth']) == ('+150,000₪', '+12,000₪')
+    # this month's net of each apartment
+    mm = dict(full, month_income=4000, month_out=5200)
+    mona = _mona(derived={'annual_return_pct': 6.0}, monthly=[{'month': '2026-10', 'net': -2500}, {'month': '2026-09', 'net': 9}])
+    n = ls.build_housing(mm, mona, date(2026, 10, 15))['extra']['rates']
+    assert (n[0]['month_net'], n[0]['month_net_tone']) == ('-1,200₪', 'neg') and n[1]['month_net'] == '-2,500₪'
+    assert ls.build_housing(mm, _mona(monthly=[]), date(2026, 10, 15))['extra']['rates'][1]['month_net'] is None   # nothing this month: 0 is not shown
     assert ls.build_housing({}, _mona())['extra']['rates'][0]['value'] == '—'
 
 

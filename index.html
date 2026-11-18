@@ -221,18 +221,11 @@
     /* Plants to water: their drawn icons (or photos) in a swipeable strip, a ring marking overdue / due today */
     .pstrip { position:relative; display:flex; align-items:center; gap:4px; margin-top:8px; padding-top:10px; border-top:1px solid var(--border); z-index:1; }
     /* swipe strip: icons cut by either edge fade out instead of ending abruptly */
-    .ptrack { display:flex; gap:10px; flex:1; min-width:0; overflow-x:auto; scroll-snap-type:x proximity; scrollbar-width:none; padding:4px 16px;
+    .ptrack { display:flex; gap:10px; flex:1; min-width:0; overflow-x:auto; scrollbar-width:none; padding:4px 16px;
               -webkit-mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
                       mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); }
     .ptrack::-webkit-scrollbar { display:none; }
-    /* roller: when the plants don't fit, the strip glides on its own (two copies, shifted by one set = seamless loop);
-       it pauses while the pointer is over it or a finger holds it. Reduced motion keeps the manual strip. */
-    .ptrack.roll { overflow:hidden; }
-    .pmove { display:flex; width:max-content; animation:proll var(--dur, 20s) linear infinite; }
-    .pmove .pchip { margin-inline-end:10px; }
-    .ptrack.roll:hover .pmove, .ptrack.roll:active .pmove, .ptrack.roll:focus-within .pmove { animation-play-state:paused; }
-    @keyframes proll { to { transform:translateX(50%); } }
-    .pchip { flex:none; width:62px; display:flex; flex-direction:column; align-items:center; gap:4px; scroll-snap-align:start;
+    .pchip { flex:none; width:62px; display:flex; flex-direction:column; align-items:center; gap:4px;
              color:inherit; text-decoration:none; }
     .pchip .pi { width:46px; height:46px; border-radius:13px; overflow:hidden; outline:2px solid var(--amber); outline-offset:2px; }
     .pchip.late .pi { outline-color:var(--red); }
@@ -790,21 +783,6 @@
     return '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="1" y="1" width="46" height="46" rx="13" fill="' + esc(p.color || '#1e9d8b') + '"/>' +
       '<g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + g + '</g></svg>';
   }
-  /** Turn an overflowing strip into a seamless roller. No-op when everything fits or motion is reduced. */
-  function startRoll(track) {
-    if (!track || !track.isConnected || track.classList.contains('roll')) return;
-    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const chips = Array.from(track.querySelectorAll('.pchip'));
-    if (!chips.length || track.scrollWidth <= track.clientWidth + 2) return;
-    const move = document.createElement('div');
-    move.className = 'pmove';
-    chips.forEach(c => move.appendChild(c));
-    chips.forEach(c => { const k = c.cloneNode(true); k.setAttribute('aria-hidden', 'true'); k.tabIndex = -1; move.appendChild(k); });
-    track.appendChild(move);
-    track.classList.add('roll');
-    move.style.setProperty('--dur', Math.max(10, move.scrollWidth / 2 / 36).toFixed(1) + 's');   /* ~36 px a second */
-  }
-
   /** Strip of the plants to water (extra.plants, overdue first): a swipeable row, its cut edges faded. */
   function plantStrip(plants, href) {
     const wrap = document.createElement('div');
@@ -815,18 +793,26 @@
           '<span class="pi">' + plantBadgeHtml(p) + '</span><span class="pn">' + esc(p.name) + '</span>' +
           '<span class="ps">' + (p.status === 'overdue' ? 'באיחור' : 'היום') + '</span></a>').join('') + '</div>' +
       '';
-    /* too many plants to fit: roll them (a frame later, once the strip is in the page and can be measured) */
-    requestAnimationFrame(() => startRoll(wrap.querySelector('.ptrack')));
-    /* mouse wheel scrolls the strip sideways; at either end the page scrolls as usual (RTL: forward = negative scrollLeft) */
+    /* mouse wheel rolls the strip sideways, eased frame by frame so it glides instead of jumping a notch at a time;
+       at either end the page scrolls as usual (RTL: forward = negative scrollLeft, 0 at the start) */
     const track = wrap.querySelector('.ptrack');
+    let target = null, raf = 0;
+    const step = () => {
+      const diff = target - track.scrollLeft;
+      if (Math.abs(diff) < 0.5) { track.scrollLeft = target; raf = 0; return; }
+      track.scrollLeft += diff * 0.16;
+      raf = requestAnimationFrame(step);
+    };
     track.addEventListener('wheel', e => {
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;           /* a horizontal gesture is already native */
       const max = track.scrollWidth - track.clientWidth;
       if (max <= 1) return;
-      const forward = e.deltaY > 0, pos = -track.scrollLeft;         /* 0 at the start, `max` at the end */
-      if ((forward && pos >= max - 1) || (!forward && pos <= 1)) return;
+      const base = raf ? target : track.scrollLeft;
+      const next = Math.max(-max, Math.min(0, base - e.deltaY));
+      if (next === base) return;                                      /* already at that end: let the page scroll */
       e.preventDefault();
-      track.scrollBy({ left: -e.deltaY, behavior: 'auto' });
+      target = next;
+      if (!raf) raf = requestAnimationFrame(step);
     }, { passive: false });
     return wrap;
   }

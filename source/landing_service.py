@@ -484,6 +484,20 @@ def _names(groups, limit=3):
     return ', '.join(names[:limit]) + (f' +{len(names) - limit}' if len(names) > limit else '')
 
 
+def _charge_tiles(groups, verb, date_key, tone, limit=3):
+    """One tile per newly entered / exited charge: its name, its monthly amount, and when it started / last paid.
+    More than `limit` collapse into a '+N נוספים' tile."""
+    tiles = []
+    for g in groups[:limit]:
+        when = short_date(g.get(date_key))
+        sub = f"{verb} · {'מ-' if verb == 'נכנס' else 'שולם '}{when}" if when else verb
+        tiles.append({'name': g.get('name') or '?', 'value': money(g.get('current_amount')), 'sub': sub, 'tone': tone})
+    if len(groups) > limit:
+        tiles.append({'name': f'+{len(groups) - limit} נוספים', 'value': money(sum(float(g.get('current_amount') or 0) for g in groups[limit:])),
+                      'sub': verb, 'tone': tone})
+    return tiles
+
+
 def recurring_overview(groups, today):
     """What the recurring charges cost per month in total (every active group, rent included), plus the ones that
     newly entered (their first payment is within RECENT_MONTHS) and the ones that newly exited (stopped, last paid
@@ -516,11 +530,11 @@ def build_recurring(groups, today):
     if ov['new']:
         lines.append(f"נכנס לאחרונה · {_names(ov['new'])}")
         tones.append(None)
-        tiles.append({'name': 'נכנס לאחרונה', 'value': _names(ov['new'])})
+        tiles.extend(_charge_tiles(ov['new'], 'נכנס', 'first_payment_date', None))
     if ov['gone']:
         lines.append(f"יצא לאחרונה · {_names(ov['gone'])}")
         tones.append('neg')
-        tiles.append({'name': 'יצא לאחרונה', 'value': _names(ov['gone']), 'tone': 'neg'})
+        tiles.extend(_charge_tiles(ov['gone'], 'יצא', 'last_payment_date', 'neg'))
     upcoming = []
     for g in groups or []:
         d = as_date(g.get('next_expected'))

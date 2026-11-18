@@ -537,3 +537,16 @@ def test_main_bank_tile_leads_and_is_marked():
     tiles = ls.build_accounts(payload, None, {}, TODAY)['extra']['tiles']
     assert [t['name'] for t in tiles] == ['Main Bank', 'Big'] and tiles[0]['main'] and not tiles[1]['main']
 
+
+def test_recurring_new_and_exited_charges_are_one_tile_each():
+    groups = [
+        {'name': 'נטפליקס', 'current_amount': 50, 'next_expected': '2026-10-20', 'possibly_stopped': False,
+         'first_payment_date': '2026-08-20', 'last_payment_date': '2026-09-20'},
+        {'name': 'חדר כושר', 'current_amount': 199, 'next_expected': '2026-10-05', 'possibly_stopped': True,
+         'first_payment_date': '2025-01-05', 'last_payment_date': '2026-08-05'}]
+    tiles = ls.build_recurring(groups, TODAY)['extra']['tiles']
+    new = next(t for t in tiles if t['name'] == 'נטפליקס')
+    gone = next(t for t in tiles if t['name'] == 'חדר כושר')
+    assert (new['value'], new['sub'], new['tone']) == ('50₪', 'נכנס · מ-20.08.26', None)
+    assert (gone['value'], gone['sub'], gone['tone']) == ('199₪', 'יצא · שולם 05.08.26', 'neg')
+

@@ -210,7 +210,10 @@
 
     /* Plants to water: their drawn icons (or photos) in a swipeable strip, a ring marking overdue / due today */
     .pstrip { position:relative; display:flex; align-items:center; gap:4px; margin-top:8px; padding-top:10px; border-top:1px solid var(--border); z-index:1; }
-    .ptrack { display:flex; gap:10px; flex:1; min-width:0; overflow-x:auto; scroll-snap-type:x proximity; scrollbar-width:none; padding:4px 2px; }
+    /* swipe strip: icons cut by either edge fade out instead of ending abruptly */
+    .ptrack { display:flex; gap:10px; flex:1; min-width:0; overflow-x:auto; scroll-snap-type:x proximity; scrollbar-width:none; padding:4px 16px;
+              -webkit-mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+                      mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); }
     .ptrack::-webkit-scrollbar { display:none; }
     .pchip { flex:none; width:62px; display:flex; flex-direction:column; align-items:center; gap:4px; scroll-snap-align:start;
              color:inherit; text-decoration:none; }
@@ -220,10 +223,6 @@
     .pchip .pn { max-width:100%; font-size:11.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .pchip .ps { font-size:10.5px; color:var(--muted); margin-top:-3px; }
     .pchip.late .ps { color:var(--red); font-weight:600; }
-    .pnav { flex:none; width:26px; height:26px; border:1px solid var(--border); border-radius:50%; background:rgba(255,255,255,.7);
-            color:var(--muted); cursor:pointer; font:inherit; font-size:15px; line-height:1; }
-    .pnav:hover { color:var(--ink, var(--navy)); background:#fff; }
-    .pnav[hidden] { display:none; }
 
     /* Pie of the active cards: each card's share of the month's charges */
     .pie { display:flex; align-items:center; gap:14px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
@@ -756,22 +755,16 @@
     return '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="1" y="1" width="46" height="46" rx="13" fill="' + esc(p.color || '#1e9d8b') + '"/>' +
       '<g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + g + '</g></svg>';
   }
-  /** Strip of the plants to water (extra.plants, overdue first): a swipeable row with arrows for the mouse. */
+  /** Strip of the plants to water (extra.plants, overdue first): a swipeable row, its cut edges faded. */
   function plantStrip(plants, href) {
     const wrap = document.createElement('div');
     wrap.className = 'pstrip';
     wrap.innerHTML =
-      '<button type="button" class="pnav" data-dir="1" aria-label="הקודם" hidden>›</button>' +
       '<div class="ptrack" role="list" aria-label="עציצים להשקיה">' + plants.map(p =>
         '<a class="pchip' + (p.status === 'overdue' ? ' late' : '') + '" role="listitem" href="' + esc(href) + '" title="' + esc(p.name) + '">' +
           '<span class="pi">' + plantBadgeHtml(p) + '</span><span class="pn">' + esc(p.name) + '</span>' +
           '<span class="ps">' + (p.status === 'overdue' ? 'באיחור' : 'היום') + '</span></a>').join('') + '</div>' +
-      '<button type="button" class="pnav" data-dir="-1" aria-label="הבא" hidden>‹</button>';
-    const track = wrap.querySelector('.ptrack'), btns = wrap.querySelectorAll('.pnav');
-    const sync = () => btns.forEach(b => { b.hidden = track.scrollWidth <= track.clientWidth + 2; });
-    btns.forEach(b => b.addEventListener('click', () => track.scrollBy({ left: Number(b.dataset.dir) * track.clientWidth * 0.8, behavior: 'smooth' })));
-    requestAnimationFrame(sync);
-    window.addEventListener('resize', sync);
+      '';
     return wrap;
   }
 

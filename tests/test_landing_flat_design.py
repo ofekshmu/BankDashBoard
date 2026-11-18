@@ -8,7 +8,8 @@ HTML = (Path(__file__).resolve().parent.parent / 'index.html').read_text(encodin
 
 def test_only_the_page_canvas_is_a_gradient():
     body = re.sub(r'/\*.*?\*/', '', HTML, flags=re.S)
-    assert body.count('linear-gradient') == 1 and '--canvas:linear-gradient' in body
+    fades = ' '.join(l for l in body.splitlines() if 'mask-image' not in l)   # edge fades of swipe strips are masks
+    assert fades.count('linear-gradient') == 1 and '--canvas:linear-gradient' in body
 
 
 def test_shadows_only_on_floating_layers_and_focus_rings():

@@ -175,9 +175,6 @@
     .mask-btn:hover { background:var(--bg); color:var(--ink, var(--navy)); }
     .mask-btn svg { width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
     .caption { font-size:13px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .details { list-style:none; display:flex; flex-direction:column; gap:3px; margin-top:4px; font-size:12.5px;
-               border-top:1px solid var(--border); padding-top:8px; }
-    .details li { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .card .err { font-size:13px; color:var(--muted); margin-top:6px; }
     .retry { margin-top:8px; padding:4px 10px; border:1px solid var(--border); border-radius:var(--r-input); background:var(--white);
              color:var(--ink, var(--navy)); font:inherit; font-size:12.5px; cursor:pointer; position:relative; z-index:1; }
@@ -212,11 +209,6 @@
     .rate .rv.pos { color:var(--green); } .rate .rv.neg { color:var(--red); }
     .rate .rt { font-size:10.5px; color:var(--muted); }
     /* the growth in money, under the rate: a rate alone doesn't show how much it is */
-    .rate .rg { display:flex; justify-content:space-between; align-items:baseline; gap:6px; margin-top:4px; font-size:12px; }
-    .rate .rt + .rg { margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
-    .rate .rgl { color:var(--muted); }
-    .rate .rgv { font-weight:600; font-variant-numeric:tabular-nums; }
-    .rate .rgv.pos { color:var(--green); } .rate .rgv.neg { color:var(--red); }
 
     /* Plants to water: their drawn icons (or photos) in a swipeable strip, a ring marking overdue / due today */
     .pstrip { position:relative; display:flex; align-items:center; gap:4px; margin-top:8px; padding-top:10px; border-top:1px solid var(--border); z-index:1; }
@@ -242,21 +234,9 @@
     .pie-total { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:700;
                  font-variant-numeric:tabular-nums; direction:ltr; }
     .pie-wrap { position:relative; flex:none; width:min(100%, 168px); aspect-ratio:1; }
-    .pie-legend { list-style:none; display:flex; flex-direction:column; gap:4px; min-width:0; width:100%; font-size:12.5px; }
-    .pie-legend li { display:flex; align-items:center; gap:6px; min-width:0; }
-    .pie-legend .sw { flex:none; width:9px; height:9px; border-radius:3px; }
-    .pie-legend .lb { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .pie-legend .pc { flex:none; color:var(--muted); font-variant-numeric:tabular-nums; }
 
     /* Net income + net investments, previous and current month */
-    .flow { display:grid; grid-template-columns:auto 1fr 1fr; align-items:baseline; gap:4px 10px; margin-top:6px;
-            padding-top:8px; border-top:1px solid var(--border); font-size:12.5px; }
-    .flow .fh { font-size:11px; color:var(--muted); text-align:left; white-space:nowrap; }
-    .flow .fl { color:var(--muted); white-space:nowrap; }
-    .flow .fv { font-weight:700; text-align:left; font-variant-numeric:tabular-nums; white-space:nowrap; }
-    .flow .fv.pos { color:var(--teal-dark); } .flow .fv.neg { color:var(--red); } .flow .fv.inv { color:var(--invest); }
     .kpi.kpi-pos { color:var(--green); } .kpi.kpi-neg { color:var(--red); }   /* extra.tone, e.g. Spotify net */
-    .details li.neg { color:var(--red); font-weight:600; }                    /* extra.detail_tones, e.g. debtors */
     .kpi.kpi-wrap { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere;
                     font-size:22px; line-height:1.25; }                          /* timeline: full event name */
     /* Small KPI boxes inside a block (extra.tiles), e.g. bills per type */
@@ -913,20 +893,6 @@
       '</svg></div>',
       delta: '<div class="' + cls + '"><div class="tr"><span class="tp" dir="ltr">' + (down ? '▼ ' : '▲ ') + pctTxt + '(' + amtTxt + ')</span>' +
         '<span class="tw">מול ' + esc(since) + '</span></div></div>' };
-  }
-
-  /** Net income and net investments of the previous and the current month (extra.flow), as a small table. */
-  function flowHtml(flow) {
-    if (!flow || !flow.length) return '';
-    const cell = (v, cls) => '<span class="fv ' + cls + '" dir="ltr">' + shekels(v) + '</span>';
-    return '<div class="flow">' +
-      '<span></span>' + flow.map((f, i) => '<span class="fh" title="' + esc(f.label) + (i === flow.length - 1 ? ' — עד היום' : '') + '">' +
-        esc(f.label.split(' ')[0]) + '</span>').join('') +
-      '<span class="fl">הכנסות</span>' + flow.map(f => cell(f.income, 'pos')).join('') +
-      '<span class="fl">הוצאות</span>' + flow.map(f => cell(f.spend, 'neg')).join('') +
-      '<span class="fl">נטו</span>' + flow.map(f => cell(f.net, f.net >= 0 ? 'pos' : 'neg')).join('') +
-      '<span class="fl">השקעות נטו</span>' + flow.map(f => cell(f.invest, 'inv')).join('') +
-    '</div>';
   }
 
   let pickedMonth = null;   /* month chosen in the picker; survives repaints (refresh) */

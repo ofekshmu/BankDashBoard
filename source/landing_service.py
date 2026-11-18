@@ -246,10 +246,20 @@ def build_accounts(payload, cash_map, rates, today):
     if total is None:
         return block('—', 'שווי כל החשבונות', dot='grey')
     stale = _stale_accounts(accounts, today)
-    details = cap(f'{name} · עודכן {short_date(d)}' for d, name in stale) or ['כל החשבונות מעודכנים']
+    stale_since = {name: d for d, name in stale}
     trend = accounts_trend(accounts['Total'], cash_delta(accounts, cash_map, rates), today)
-    return block(money(total), 'שווי כל החשבונות', details, dot='amber' if stale else 'green',
-                 extra={'trend': trend},
+    # one small tile per account with a balance; a stale one is flagged (the page shows it yellow with an alert sign)
+    cash_ils = cash_ils_total(cash_map, rates)
+    tiles = []
+    for name, series in accounts.items():
+        if name == 'Total' or not series or not series[-1][1]:
+            continue
+        bal = cash_ils if name == 'Cash' and cash_ils is not None else float(series[-1][1])
+        tiles.append((abs(bal), {'name': name, 'value': money(bal), 'alert': name in stale_since,
+                                 'since': short_date(stale_since[name]) if name in stale_since else None}))
+    tiles = [t for _, t in sorted(tiles, key=lambda x: -x[0])]
+    return block(money(total), 'שווי כל החשבונות', [], dot='amber' if stale else 'green',
+                 extra={'trend': trend, 'tiles': tiles},
                  attention=count_text(len(stale), 'חשבון אחד לא עודכן', 'חשבונות לא עודכנו') + f' מעל {STALE_DAYS} יום')
 
 

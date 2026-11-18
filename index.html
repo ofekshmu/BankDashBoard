@@ -263,6 +263,11 @@
     /* a tile that carries its own colour (each bill type) is filled with it again */
     .mini-kpi.coloured { color:#fff; border-color:transparent; text-shadow:0 1px 1px rgba(0,0,0,.18); }
     .mini-kpi.coloured .mk-name { color:#fff; opacity:.92; }
+    /* an account that has not been updated: yellow with an alert sign (the date is in its tooltip) */
+    .mini-kpi.alert { --mk:#fff3cf; border-color:var(--amber); }
+    .mini-kpi.alert .mk-name { color:#7a5a00; display:flex; align-items:center; gap:4px; }
+    .mini-kpi.alert .mk-name svg { flex:none; width:13px; height:13px; stroke:#b07d00; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+    .mk-val.masked { filter:blur(7px); user-select:none; -webkit-user-select:none; transition:filter .25s ease; }
     .mini-kpi .mk-name { font-size:11.5px; font-weight:500; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mini-kpi .mk-val { font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
     /* Accounts: 3-month sparkline + change rate */
@@ -586,6 +591,7 @@
       k.title = accountsShown ? (k.dataset.val || '') : '';
       k.setAttribute('aria-label', accountsShown ? (k.dataset.val || '') : 'מוסתר');
     }
+    card.querySelectorAll('.mini-kpi .mk-val').forEach(v => v.classList.toggle('masked', !accountsShown));   /* the accounts' balances hide with the total */
     const b = card.querySelector('[data-mask]');
     if (b) {
       b.setAttribute('aria-pressed', String(accountsShown));
@@ -806,8 +812,10 @@
   function miniKpisHtml(tiles) {
     if (!tiles || !tiles.length) return '';
     return '<div class="mini-kpis">' + tiles.map(t =>
-      '<div class="mini-kpi' + (t.color ? ' coloured' : '') + '"' + (t.color ? ' style="--mk:' + esc(t.color) + '"' : '') + '>' +
-        '<span class="mk-name" title="' + esc(t.name) + '">' + esc(t.name) + '</span>' +
+      '<div class="mini-kpi' + (t.color ? ' coloured' : '') + (t.alert ? ' alert' : '') + '"' + (t.color ? ' style="--mk:' + esc(t.color) + '"' : '') + '>' +
+        '<span class="mk-name" title="' + esc(t.name + (t.since ? ' · לא עודכן מאז ' + t.since : '')) + '">' +
+          (t.alert ? '<svg viewBox="0 0 24 24" role="img" aria-label="לא עודכן"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18.5h.01"/></svg>' : '') +
+          esc(t.name) + '</span>' +
         '<span class="mk-val" dir="ltr">' + esc(t.value) + '</span>' +
       '</div>').join('') + '</div>';
   }

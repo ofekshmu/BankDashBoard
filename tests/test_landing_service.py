@@ -155,13 +155,16 @@ def test_accounts_block_carries_the_trend():
 def test_accounts_block_lists_stale_accounts():
     b = ls.build_accounts(ACCTS, None, {}, TODAY)
     assert b['kpi'] == '24,500₪' and b['caption'] == 'שווי כל החשבונות'
-    assert b['dot'] == 'amber' and b['details'] == ['Old · עודכן 01.07.26']   # zero-balance 'Closed' skipped
+    assert b['dot'] == 'amber' and b['details'] == []
+    alerts = [t['name'] for t in b['extra']['tiles'] if t['alert']]
+    assert alerts == ['Old'] and 'Closed' not in [t['name'] for t in b['extra']['tiles']]   # zero-balance 'Closed' skipped
+    assert [t['since'] for t in b['extra']['tiles'] if t['alert']] == ['01.07.26']
 
 
 def test_accounts_block_all_fresh_and_empty():
     fresh = {'accounts': {'A': [['2026-10-01', 5]], 'Total': [['2026-10-01', 5]]}}
     b = ls.build_accounts(fresh, None, {}, TODAY)
-    assert b['dot'] == 'green' and b['details'] == ['כל החשבונות מעודכנים']
+    assert b['dot'] == 'green' and b['details'] == [] and not any(t['alert'] for t in b['extra']['tiles'])
     assert ls.build_accounts(None, None, {}, TODAY)['dot'] == 'grey'
 
 

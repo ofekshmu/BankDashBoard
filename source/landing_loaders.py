@@ -28,7 +28,12 @@ def _spotify_balances(db):
 def _plants_summary(today):
     import plant_service
     from routes.plant_routes import get_store
-    return plant_service.build_payload(get_store(), today)['summary']
+    payload = plant_service.build_payload(get_store(), today)
+    # the plants to water (overdue first) travel with the counts so the homepage can show their icons
+    needing = [{k: p.get(k) for k in ('id', 'name', 'plant_type', 'color', 'photo', 'status')}
+               for p in payload['plants'] if p.get('status') in ('overdue', 'due')]
+    needing.sort(key=lambda p: p['status'] != 'overdue')
+    return dict(payload['summary'], needing=needing)
 
 
 def load_cards(today):
@@ -52,13 +57,13 @@ def load_timeline(today):
     return ls.build_timeline({'name': name, 'event_date': event_date, 'created_at': created_at})
 
 
-def load_mona(today):
-    """The Mona apartment project, exactly as the housing page's Mona tab loads it."""
+def mona_payload(today):
+    """The Mona project payload as the housing page's Mona tab loads it, or None when it can't be read."""
     import housing_project_service as svc
     try:
-        return ls.build_mona(svc.project_payload(_db(), 'mona', today))
-    except svc.UnknownProject:
-        return ls.build_mona(None)
+        return svc.project_payload(_db(), 'mona', today)
+    except Exception:
+        return None
 
 
 def load_bills(today):
@@ -155,7 +160,7 @@ def load_month_keys():
 
 def register_default_loaders():
     from routes.landing_routes import register_loader
-    for name, fn in (('cards', load_cards), ('timeline', load_timeline), ('mona', load_mona), ('bills', load_bills),
+    for name, fn in (('cards', load_cards), ('timeline', load_timeline), ('bills', load_bills),
                      ('spotify', load_spotify), ('plants', load_plants), ('recurring', load_recurring),
                      ('tagger', load_tagger), ('files', load_files)):
         register_loader(name, fn)

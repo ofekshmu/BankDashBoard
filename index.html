@@ -134,8 +134,6 @@
     .edit-ctl button:disabled { opacity:.35; cursor:default; }
     .edit-ctl svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
     @media (max-width:480px) { .att-box { width:100%; } .att-item { width:100%; } .att-item .att-text { flex:1; max-width:none; white-space:normal; } }
-    /* the monthly block is the tallest (table + month strip): give it two rows so its neighbours don't stretch */
-    @media (min-width:560px) { #blk-monthly { grid-row:span 2; } }
     #blk-monthly .card-link { flex:none; }          /* the month strip follows the table instead of sinking to the bottom */
     .grid-empty { grid-column:1 / -1; text-align:center; color:var(--muted); font-size:14px; padding:40px 10px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px;
@@ -199,6 +197,33 @@
              cursor:pointer; white-space:nowrap; transition:background .15s, color .15s; }
     .mchip:hover { color:var(--ink, var(--navy)); }
     .mchip.sel { background:var(--white); border-color:var(--teal); color:var(--teal-dark); font-weight:700; }
+
+    /* Housing: the annual rate of each apartment, side by side */
+    .rates { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px; }
+    .rate { display:flex; flex-direction:column; gap:2px; min-width:0; padding:8px 10px; border:1px solid var(--border);
+            border-radius:var(--r-badge); background:rgba(255,255,255,.55); cursor:pointer; position:relative; z-index:1; }
+    .rate:hover { background:rgba(255,255,255,.9); }
+    .rate .rn { font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .rate .rv { font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; direction:ltr; text-align:right; line-height:1.2; }
+    .rate .rv.pos { color:var(--green); } .rate .rv.neg { color:var(--red); }
+    .rate .rt { font-size:10.5px; color:var(--muted); }
+
+    /* Plants to water: their drawn icons (or photos) in a swipeable strip, a ring marking overdue / due today */
+    .pstrip { position:relative; display:flex; align-items:center; gap:4px; margin-top:8px; padding-top:10px; border-top:1px solid var(--border); z-index:1; }
+    .ptrack { display:flex; gap:10px; flex:1; min-width:0; overflow-x:auto; scroll-snap-type:x proximity; scrollbar-width:none; padding:4px 2px; }
+    .ptrack::-webkit-scrollbar { display:none; }
+    .pchip { flex:none; width:62px; display:flex; flex-direction:column; align-items:center; gap:4px; scroll-snap-align:start;
+             color:inherit; text-decoration:none; }
+    .pchip .pi { width:46px; height:46px; border-radius:13px; overflow:hidden; outline:2px solid var(--amber); outline-offset:2px; }
+    .pchip.late .pi { outline-color:var(--red); }
+    .pchip .pi svg, .pchip .pi img { display:block; width:100%; height:100%; object-fit:cover; }
+    .pchip .pn { max-width:100%; font-size:11.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pchip .ps { font-size:10.5px; color:var(--muted); margin-top:-3px; }
+    .pchip.late .ps { color:var(--red); font-weight:600; }
+    .pnav { flex:none; width:26px; height:26px; border:1px solid var(--border); border-radius:50%; background:rgba(255,255,255,.7);
+            color:var(--muted); cursor:pointer; font:inherit; font-size:15px; line-height:1; }
+    .pnav:hover { color:var(--ink, var(--navy)); background:#fff; }
+    .pnav[hidden] { display:none; }
 
     /* Pie of the active cards: each card's share of the month's charges */
     .pie { display:flex; align-items:center; gap:14px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
@@ -313,7 +338,8 @@
     </div>
     <div class="sidebar-scroll" data-nav=""></div>
   </nav>
-  <script src="/nav.js"></script>
+  <script src="/plant-icons.js"></script>
+<script src="/nav.js"></script>
 </main>
 
 <script>
@@ -418,7 +444,6 @@
     accounts:  '<path d="M3 10l9-6 9 6"/><path d="M5 10v9M19 10v9M9 10v9M15 10v9M3 21h18"/>',
     cards:     '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
     housing:   '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
-    mona:      '<path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-5h6v5M9 11h.01M15 11h.01"/><path d="M2 21h20"/>',
     timeline:  '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     organizer: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
     bills:     '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/>',
@@ -435,7 +460,6 @@
     { id: 'monthly',   title: 'ניתוח חודשי',      live: true, href: '/monthly' },
     { id: 'cards',     title: 'כרטיסים',          live: true, href: '/card-analysis' },
     { id: 'housing',   title: 'דיור',             live: true, href: '/housing', prop: 'shabazi' },
-    { id: 'mona',      title: 'מונה',             live: true, href: '/housing', prop: 'mona' },
     { id: 'timeline',  title: 'ציר זמן',          live: true, href: '/timeline' },
     { id: 'organizer', title: 'ארגונית',          desc: 'סידור ותיוג קבצים',          href: '/organizer' },
     { id: 'bills',     title: 'מעקב חשבונות',     live: true, href: '/bills' },
@@ -641,6 +665,8 @@
     if (oldRow) oldRow.remove();
     const oldAlerts = el.querySelector('.month-alerts');
     if (oldAlerts) oldAlerts.remove();
+    const oldStrip = el.querySelector('.pstrip');
+    if (oldStrip) oldStrip.remove();
     if (!entry) {
       if (isHidden(id)) { body.innerHTML = '<div class="err">מוסתר — הנתונים ייטענו כשיוצג</div>'; dot.className = 'dot'; }
       return;   /* otherwise the skeleton stays until the request returns */
@@ -661,10 +687,18 @@
     const tone = { pos: ' kpi-pos', neg: ' kpi-neg' }[(d.extra || {}).tone] || '';
     const wrap = id === 'timeline' ? ' kpi-wrap' : '';   /* event names show in full */
     const dTones = (d.extra || {}).detail_tones || [];
+    /* the month is already the big heading: never repeat it in the caption */
+    let caption = d.caption || '';
+    if (id === 'monthly' && (d.extra || {}).period) caption = caption.split(d.extra.period).join('').replace(/^[\s·\-—]+|[\s·\-—]+$/g, '') || caption;
+    if (id === 'housing' && (d.extra || {}).rates) {
+      body.innerHTML = ratesHtml(d.extra.rates);
+      paintAge(el, id);
+      return;
+    }
     body.innerHTML =
       (id === 'monthly' && (d.extra || {}).period ? '<div class="period">' + esc(d.extra.period) + '</div>' : '') +
       '<div class="kpi' + ltr + tone + wrap + '" data-val="' + esc(d.kpi) + '" title="' + esc(d.kpi) + '">' + esc(d.kpi) + '</div>' +
-      '<div class="caption" title="' + esc(d.caption) + '">' + rich(d.caption) + '</div>' +
+      '<div class="caption" title="' + esc(caption) + '">' + rich(caption) + '</div>' +
       ((d.details || []).length && id !== 'monthly' && !(id === 'cards' && (d.extra || {}).pie) ? '<ul class="details">' + d.details.map((x, i) =>
         '<li' + (dTones[i] === 'neg' ? ' class="neg"' : '') + ' title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '') +
       (id === 'monthly' ? flowHtml((d.extra || {}).flow) : '') +
@@ -674,6 +708,11 @@
     const kpiEl = body.querySelector('.kpi.kpi-ltr');
     if (kpiEl && window.rollNumber) rollNumber(kpiEl, d.kpi, 'landing:' + id);   /* digits roll to the new figure */
     if (id === 'accounts') applyAccountsMask();
+    if (id === 'plants' && (d.extra || {}).plants) {
+      const tail = el.querySelector('.edit-ctl'), upd = el.querySelector('.updated');
+      el.insertBefore(plantStrip(d.extra.plants, BLOCK_BY_ID.plants.href), tail);
+      if (upd) el.insertBefore(upd, tail);   /* the update time stays the very last line */
+    }
     if (id === 'monthly') {
       renderMonthPicker(el, d.extra || {});
       /* below the month strip: the alerts, then (very last) the update time */
@@ -693,6 +732,40 @@
   function shekels(v) {
     const n = Math.round(Number(v) || 0);
     return (n < 0 ? '-' : '') + Math.abs(n).toLocaleString('en-US') + '₪';
+  }
+
+  /** Housing block: both apartments' annual rate (extra.rates [{name, prop, value, tone, note}]). A tap opens that apartment. */
+  function ratesHtml(rates) {
+    return '<div class="rates">' + rates.map(r =>
+      '<div class="rate" data-prop="' + esc(r.prop) + '"><span class="rn">' + esc(r.name) + '</span>' +
+      '<span class="rv ' + (r.tone || '') + '" dir="ltr">' + esc(r.value) + '</span>' +
+      '<span class="rt">תשואה שנתית' + (r.note ? ' · ' + esc(r.note) : '') + '</span></div>').join('') + '</div>';
+  }
+
+  /** Icon of a plant: its photo when it has one, else the drawn glyph of its type (shared /plant-icons.js). */
+  function plantBadgeHtml(p) {
+    if (p.photo && p.id > 0) return '<img src="/api/plants/' + p.id + '/photo?v=' + encodeURIComponent(p.photo) + '" alt="" loading="lazy">';
+    const g = (window.GLYPHS && (GLYPHS[p.plant_type] || GLYPHS.sprout)) || '';
+    return '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="1" y="1" width="46" height="46" rx="13" fill="' + esc(p.color || '#1e9d8b') + '"/>' +
+      '<g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + g + '</g></svg>';
+  }
+  /** Strip of the plants to water (extra.plants, overdue first): a swipeable row with arrows for the mouse. */
+  function plantStrip(plants, href) {
+    const wrap = document.createElement('div');
+    wrap.className = 'pstrip';
+    wrap.innerHTML =
+      '<button type="button" class="pnav" data-dir="1" aria-label="הקודם" hidden>›</button>' +
+      '<div class="ptrack" role="list" aria-label="עציצים להשקיה">' + plants.map(p =>
+        '<a class="pchip' + (p.status === 'overdue' ? ' late' : '') + '" role="listitem" href="' + esc(href) + '" title="' + esc(p.name) + '">' +
+          '<span class="pi">' + plantBadgeHtml(p) + '</span><span class="pn">' + esc(p.name) + '</span>' +
+          '<span class="ps">' + (p.status === 'overdue' ? 'באיחור' : 'היום') + '</span></a>').join('') + '</div>' +
+      '<button type="button" class="pnav" data-dir="-1" aria-label="הבא" hidden>‹</button>';
+    const track = wrap.querySelector('.ptrack'), btns = wrap.querySelectorAll('.pnav');
+    const sync = () => btns.forEach(b => { b.hidden = track.scrollWidth <= track.clientWidth + 2; });
+    btns.forEach(b => b.addEventListener('click', () => track.scrollBy({ left: Number(b.dataset.dir) * track.clientWidth * 0.8, behavior: 'smooth' })));
+    requestAnimationFrame(sync);
+    window.addEventListener('resize', sync);
+    return wrap;
   }
 
   const PIE_COLORS = ['#1e9d8b', '#1e2a4a', '#e8a317', '#4f9fd6', '#d9665a', '#7a8a9a'];
@@ -977,7 +1050,8 @@
       if (retry) { e.preventDefault(); const card = retry.closest('.card'); if (card) loadBlock(card.dataset.id, true); return; }
       /* the housing page remembers its apartment: open the one this block shows */
       const hs = e.target.closest('a[data-hs-prop]');
-      if (hs && !editing) { try { localStorage.setItem('hs_prop', hs.dataset.hsProp); } catch (_) {} }
+      const rate = e.target.closest('.rate[data-prop]');   /* a tapped rate opens its own apartment */
+      if (hs && !editing) { try { localStorage.setItem('hs_prop', rate ? rate.dataset.prop : hs.dataset.hsProp); } catch (_) {} }
       const btn = e.target.closest('[data-act]');
       if (!editing) return;
       if (!btn) { if (e.target.closest('a')) e.preventDefault(); return; }

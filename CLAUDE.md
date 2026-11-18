@@ -182,8 +182,7 @@ Mona seeded). Tests: `tests/test_housing_project*.py`, `tests/test_housing_proje
 - **The page recomputes the money numbers in JS while the slider moves** (block between `MONA-CALC-BEGIN/END` in
   `Base_template.html`); `tests/test_housing_projects_js.py` runs it under node against the Python — change both together.
 - The shared timeline engine got a `'project'` scope (`_tlScopeCategory`) so the tab can show/add events in its own category.
-- **Landing block `mona`** (`landing_service.build_mona`, `landing_loaders.load_mona`): KPI = equity; its link carries `data-hs-prop`
-  so `/housing` opens the Mona tab (the דיור block sets `shabazi`).
+- **Landing:** there is no separate Mona block any more — the דיור block (`landing_service.build_housing(m, mona)`, `extra.rates`) shows the annual rate of both apartments; tapping a rate opens that apartment's tab (`hs_prop`). Mona's rate is its annual return, or the whole-period return marked "כוללת" until a year of history exists.
 - **Settings form autosaves** on field `change` (no need to press שמירה).
 - **"מידע חיוני" box** (both apartments): floating button bottom-left of `/housing` (`#housing-info-fab`, shown only on the housing panel) opening name : detail rows kept in table `HousingInfo` (`database.py`, seeded once on creation; שבזי got the details restored from the unmerged branch `claude/apartment-info-copy-button-mljshs`). Validation in `source/housing_info_service.py`, endpoints `GET/PUT /api/housing/info/<shabazi|mona>` in `housing_project_routes.py`, UI (`housingInfo*`) next to the Mona code in `Base_template.html`. Tests: `tests/test_housing_info.py`.
 - **Monthly analysis:** a payment tagged with an apartment category is an expense by default, but one that went into the apartment's value is an

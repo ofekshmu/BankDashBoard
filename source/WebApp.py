@@ -505,7 +505,7 @@ if not (os.environ.get('ADMIN_PASSWORD') or os.environ.get('DASHBOARD_PASSWORD')
 _PUBLIC_PATHS = {
     '/', '/favicon.ico', '/favicon.svg',
     '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png',
-    '/manifest.json', '/design-system.css', '/palettes.css', '/stagger.css', '/motion.css', '/nav.js',
+    '/manifest.json', '/design-system.css', '/palettes.css', '/stagger.css', '/motion.css', '/nav.js', '/plant-icons.js',
     '/api/auth/verify', '/api/auth/check', '/api/version',
 }
 
@@ -703,6 +703,14 @@ def serve_manifest():
         ],
     }
     return jsonify(manifest)
+
+
+@app.route('/plant-icons.js')
+def serve_plant_icons_js():
+    """The drawn plant icons (source/html/plant-icons.js), used by the plants page and the homepage."""
+    resp = send_file(os.path.join(_HERE, 'html', 'plant-icons.js'), mimetype='text/javascript', max_age=0)
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
 
 
 @app.route('/stagger.css')
@@ -6338,7 +6346,7 @@ app.register_blueprint(housing_projects_bp)
 from routes.landing_routes import landing_bp, register_loader as _landing_register
 import landing_service as _landing_svc
 from landing_loaders import register_default_loaders as _landing_defaults, load_month_keys as _landing_month_keys
-from landing_loaders import load_card_validation_misses as _landing_card_misses
+from landing_loaders import load_card_validation_misses as _landing_card_misses, mona_payload as _landing_mona_payload
 app.register_blueprint(landing_bp)
 _landing_defaults()
 
@@ -6384,7 +6392,7 @@ def _landing_housing(today):
     data, status = _view_json(housing_data_api())
     if status != 200:
         raise RuntimeError((data or {}).get('error', 'housing data failed'))
-    return _landing_svc.build_housing(data.get('mortgage'))
+    return _landing_svc.build_housing(data.get('mortgage'), _landing_mona_payload(today))
 
 
 _landing_register('monthly', _landing_monthly)

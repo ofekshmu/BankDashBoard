@@ -195,36 +195,20 @@ def test_housing_block():
 
 
 def _mona(**over):
-    p = {'name': 'מונה', 'has_price': True,
-         'money': {'paid_price': 25000, 'extra_costs': 5000, 'net_invested': 30000},
-         'derived': {'equity': 27000, 'market_value': 1_859_000, 'profit': -3000},
-         'financing': {'own_total_target': 464_750},
-         'delivery': {'days_left': None}, 'event_stats': {'last': None}}
+    p = {'name': 'מונה', 'has_price': True, 'derived': {'annual_return_pct': None, 'total_return_pct': -4.2}}
     p.update(over)
     return p
 
 
-def test_mona_block_shows_equity_value_plan_and_profit():
-    b = ls.build_mona(_mona())
-    assert b['kpi'] == '27,000₪' and b['caption'] == 'מונה · הון עצמי בנכס'
-    assert b['details'] == ['שווי הדירה 1,859,000₪', 'שולם 25,000₪ מתוך הון עצמי 464,750₪', 'רווח נקי -3,000₪']
-    assert b['dot'] is None and b['attention'] is None and b['extra'] == {'prop': 'mona'}
-    assert ls.build_mona(_mona(derived={'equity': 1, 'market_value': 2, 'profit': 500}))['dot'] == 'green'
-
-
-def test_mona_block_ends_with_delivery_countdown_or_last_event():
-    assert ls.build_mona(_mona(delivery={'days_left': 40}))['details'][-1] == 'מסירה בעוד 40 ימים'
-    assert ls.build_mona(_mona(delivery={'days_left': 1}))['details'][-1] == 'מסירה בעוד יום'
-    assert ls.build_mona(_mona(delivery={'days_left': 0}))['details'][-1] == 'מסירה היום'
-    ev = {'last': {'name': 'חתימה', 'event_date': '2026-10-09'}}
-    assert ls.build_mona(_mona(event_stats=ev))['details'][-1] == 'אירוע אחרון: חתימה · 09.10.26'
-    assert ls.build_mona(_mona(delivery={'days_left': -3}, event_stats=ev))['details'][-1].startswith('אירוע אחרון')
-
-
-def test_mona_block_without_a_price_or_project():
-    b = ls.build_mona(_mona(has_price=False))
-    assert b['kpi'] == '30,000₪' and b['caption'] == 'מונה · הושקע עד כה' and b['dot'] == 'grey'
-    assert ls.build_mona(None)['dot'] == 'grey'
+def test_housing_block_lists_the_rate_of_both_apartments():
+    m = {'annual_return_pct': 4.21, 'total_return_pct': 31.0, 'default_rate': 5}
+    rates = ls.build_housing(m, _mona())['extra']['rates']
+    assert [(r['prop'], r['value']) for r in rates] == [('shabazi', '+4.2%'), ('mona', '-4.2%')]
+    assert rates[1]['note'] == 'כוללת' and rates[1]['tone'] == 'neg'      # no year of history yet: the whole-period return
+    annual = ls.build_housing(m, _mona(derived={'annual_return_pct': 6.0, 'total_return_pct': 9}))['extra']['rates'][1]
+    assert annual['value'] == '+6.0%' and annual['note'] is None
+    assert ls.build_housing(m, None)['extra']['rates'][1]['value'] == '—'
+    assert ls.build_housing({}, _mona())['extra']['rates'][0]['value'] == '—'
 
 
 def test_housing_missing_default_rate_uses_page_default():

@@ -182,7 +182,10 @@ def test_every_plant_type_has_an_icon_and_label_in_the_page(client):
     import re
     from src_utils.plant_logic import PLANT_TYPES
     html = client.get('/plants').get_data(as_text=True)
-    glyphs = re.search(r'var GLYPHS = \{(.*?)\n\};', html, re.S).group(1)
+    assert '/plant-icons.js' in html                      # the page loads the shared glyph file
+    from pathlib import Path
+    icons = (Path(__file__).resolve().parent.parent / 'source' / 'html' / 'plant-icons.js').read_text(encoding='utf-8')
+    glyphs = re.search(r'var GLYPHS = \{(.*?)\n\s*\};', icons, re.S).group(1)
     labels = re.search(r'var PLANT_TYPES = \[(.*?)\];', html, re.S).group(1)
     for t in PLANT_TYPES:
         assert re.search(r'\b' + t + r'\s*:', glyphs), f'no glyph for {t}'

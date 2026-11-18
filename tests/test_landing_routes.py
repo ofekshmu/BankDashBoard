@@ -17,7 +17,7 @@ def client(monkeypatch):
 
 
 def test_blocks_are_the_twelve_live_blocks():
-    assert lr.BLOCKS == ('monthly', 'accounts', 'cards', 'housing', 'mona', 'timeline', 'bills',
+    assert lr.BLOCKS == ('monthly', 'accounts', 'cards', 'housing', 'timeline', 'bills',
                          'spotify', 'plants', 'recurring', 'tagger', 'files')
 
 

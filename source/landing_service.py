@@ -269,10 +269,33 @@ def build_cards(cards, month=None):
 
 
 # ── Housing ────────────────────────────────────────────────────────────────
-def build_housing(m):
+def _rate_entry(name, prop, value, tone=None, note=None):
+    return {'name': name, 'prop': prop, 'value': value, 'tone': tone, 'note': note}
+
+
+def housing_rates(m, mona):
+    """The annual return of both apartments, for the housing block: שבזי from the mortgage figures, Mona from
+    its project payload (the whole-period return, marked as such, until a year of history gives an annual one)."""
     m = m or {}
+    sh = m.get('annual_return_pct')
+    rates = [_rate_entry('שלום שבזי 7', 'shabazi', pct(sh) if sh is not None else '—',
+                         None if sh is None else ('neg' if sh < 0 else 'pos'))]
+    d = (mona or {}).get('derived') or {}
+    annual, total = d.get('annual_return_pct'), d.get('total_return_pct')
+    if annual is not None:
+        rates.append(_rate_entry('מונה', 'mona', pct(annual), 'neg' if annual < 0 else 'pos'))
+    elif total is not None and (mona or {}).get('has_price'):
+        rates.append(_rate_entry('מונה', 'mona', pct(total), 'neg' if total < 0 else 'pos', 'כוללת'))
+    else:
+        rates.append(_rate_entry('מונה', 'mona', '—'))
+    return rates
+
+
+def build_housing(m, mona=None):
+    m = m or {}
+    rates = housing_rates(m, mona)
     if m.get('annual_return_pct') is None:
-        return block('—', 'תשואה שנתית', dot='grey')
+        return block('—', 'תשואה שנתית', dot='grey', extra={'rates': rates})
     rate = m.get('default_rate') or 5      # housing page: default_rate || 5
     rate = int(rate) if float(rate).is_integer() else rate
     profit = (m.get('equity_appreciated') or 0) + (m.get('alltime_income') or 0) - (m.get('net_invested') or 0)
@@ -280,37 +303,7 @@ def build_housing(m):
                f'רווח נקי {money(profit)}']
     # No attention line: housing never feeds the alert strip (the dot still shows the status)
     return block(pct(m['annual_return_pct']), f'תשואה שנתית ({rate}% עליית ערך)', details,
-                 dot='green' if m['annual_return_pct'] >= 0 else 'red')
-
-
-# ── Mona (new-build apartment) ─────────────────────────────────────────────
-def build_mona(p):
-    """The Mona project block: equity in the apartment (price payments + appreciation) as the KPI, then
-    market value, own money paid vs. the plan, net profit and the delivery countdown / last event.
-    `p` is housing_project_service.project_payload(); no attention line (never feeds the alert strip)."""
-    if not p:
-        return block('—', 'אין פרויקט', dot='grey')
-    m, d, f = p.get('money') or {}, p.get('derived') or {}, p.get('financing') or {}
-    name = p.get('name') or 'מונה'
-    if not p.get('has_price'):
-        return block(money(m.get('net_invested')), f'{name} · הושקע עד כה',
-                     ['הזינו מחיר דירה בעמוד דיור כדי לראות שווי והון עצמי'], dot='grey')
-    delivery = (p.get('delivery') or {}).get('days_left')
-    last = (p.get('event_stats') or {}).get('last')
-    if delivery is not None and delivery >= 0:
-        tail = 'מסירה היום' if delivery == 0 else f'מסירה בעוד {count_text(delivery, "יום", "ימים")}'
-    elif last:
-        tail = f"אירוע אחרון: {last['name']} · {short_date(last.get('event_date'))}"
-    else:
-        tail = None
-    profit = d.get('profit') or 0
-    details = [f"שווי הדירה {money(d.get('market_value'))}",
-               f"שולם {money(m.get('paid_price'))} מתוך הון עצמי {money(f.get('own_total_target'))}",
-               f"רווח נקי {signed_money(profit)}"]
-    if tail:
-        details.append(tail)
-    return block(money(d.get('equity')), f'{name} · הון עצמי בנכס', cap(details, 4),
-                 dot='green' if profit >= 0 else None, extra={'prop': 'mona'})
+                 dot='green' if m['annual_return_pct'] >= 0 else 'red', extra={'rates': rates})
 
 
 # ── Timeline ───────────────────────────────────────────────────────────────
@@ -433,7 +426,9 @@ def build_plants(summary):
         count_text(overdue, 'עציץ אחד באיחור', 'עציצים באיחור') if overdue else None,
         count_text(due, 'עציץ אחד להשקות היום', 'עציצים להשקות היום') if due else None,
     ) if x)
-    return block(str(due + overdue), 'עציצים להשקיה', details, dot=dot, attention=attention)
+    needing = s.get('needing') or []
+    return block(str(due + overdue), 'עציצים להשקיה', details, dot=dot, attention=attention,
+                 extra={'plants': needing} if needing else None)
 
 
 # ── Recurring charges ──────────────────────────────────────────────────────

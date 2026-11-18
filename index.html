@@ -175,6 +175,9 @@
     .mask-btn:hover { background:var(--bg); color:var(--ink, var(--navy)); }
     .mask-btn svg { width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
     .caption { font-size:13px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .details { list-style:none; display:flex; flex-direction:column; gap:3px; margin-top:4px; font-size:12.5px;
+               border-top:1px solid var(--border); padding-top:8px; }
+    .details li { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .card .err { font-size:13px; color:var(--muted); margin-top:6px; }
     .retry { margin-top:8px; padding:4px 10px; border:1px solid var(--border); border-radius:var(--r-input); background:var(--white);
              color:var(--ink, var(--navy)); font:inherit; font-size:12.5px; cursor:pointer; position:relative; z-index:1; }
@@ -209,6 +212,11 @@
     .rate .rv.pos { color:var(--green); } .rate .rv.neg { color:var(--red); }
     .rate .rt { font-size:10.5px; color:var(--muted); }
     /* the growth in money, under the rate: a rate alone doesn't show how much it is */
+    .rate .rg { display:flex; justify-content:space-between; align-items:baseline; gap:6px; margin-top:4px; font-size:12px; }
+    .rate .rt + .rg { margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
+    .rate .rgl { color:var(--muted); }
+    .rate .rgv { font-weight:600; font-variant-numeric:tabular-nums; }
+    .rate .rgv.pos { color:var(--green); } .rate .rgv.neg { color:var(--red); }
 
     /* Plants to water: their drawn icons (or photos) in a swipeable strip, a ring marking overdue / due today */
     .pstrip { position:relative; display:flex; align-items:center; gap:4px; margin-top:8px; padding-top:10px; border-top:1px solid var(--border); z-index:1; }
@@ -234,13 +242,25 @@
     .pie-total { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:700;
                  font-variant-numeric:tabular-nums; direction:ltr; }
     .pie-wrap { position:relative; flex:none; width:min(100%, 168px); aspect-ratio:1; }
+    .pie-legend { list-style:none; display:flex; flex-direction:column; gap:4px; min-width:0; width:100%; font-size:12.5px; }
+    .pie-legend li { display:flex; align-items:center; gap:6px; min-width:0; }
+    .pie-legend .sw { flex:none; width:9px; height:9px; border-radius:3px; }
+    .pie-legend .lb { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pie-legend .pc { flex:none; color:var(--muted); font-variant-numeric:tabular-nums; }
 
     /* Net income + net investments, previous and current month */
+    .flow { display:grid; grid-template-columns:auto 1fr 1fr; align-items:baseline; gap:4px 10px; margin-top:6px;
+            padding-top:8px; border-top:1px solid var(--border); font-size:12.5px; }
+    .flow .fh { font-size:11px; color:var(--muted); text-align:left; white-space:nowrap; }
+    .flow .fl { color:var(--muted); white-space:nowrap; }
+    .flow .fv { font-weight:700; text-align:left; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .flow .fv.pos { color:var(--teal-dark); } .flow .fv.neg { color:var(--red); } .flow .fv.inv { color:var(--invest); }
     .kpi.kpi-pos { color:var(--green); } .kpi.kpi-neg { color:var(--red); }   /* extra.tone, e.g. Spotify net */
+    .details li.neg { color:var(--red); font-weight:600; }                    /* extra.detail_tones, e.g. debtors */
     .kpi.kpi-wrap { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere;
                     font-size:22px; line-height:1.25; }                          /* timeline: full event name */
     /* Small KPI boxes inside a block (extra.tiles), e.g. bills per type */
-    .mini-kpis { display:grid; grid-template-columns:repeat(auto-fill, minmax(104px, 1fr)); gap:6px; margin-top:10px; }
+    .mini-kpis { display:grid; grid-template-columns:repeat(auto-fill, minmax(82px, 1fr)); gap:6px; margin-top:10px; }
     .mini-kpi { --mk:rgba(255,255,255,.6); display:flex; flex-direction:column; gap:2px; min-width:0; padding:6px 9px;
                 background:var(--mk); color:var(--ink, var(--navy)); border:1px solid var(--border); border-radius:var(--r-badge); }
     /* a tile that carries its own colour (each bill type) is filled with it again */
@@ -258,12 +278,6 @@
     .mini-kpis.big .mini-kpi.main { grid-column:1 / -1; padding:12px 14px; }
     .mini-kpis.big .mini-kpi.main .mk-name { font-size:14px; font-weight:600; }
     .mini-kpis.big .mini-kpi.main .mk-val { font-size:28px; font-weight:700; }
-    .mini-kpi .mk-sub { font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums; direction:ltr; text-align:right; }
-    .mini-kpi .mk-name .sw { display:inline-block; flex:none; width:9px; height:9px; border-radius:3px; margin-inline-end:5px; }
-    .mini-kpi .mk-val { overflow-wrap:anywhere; }
-    .mini-kpi.t-neg .mk-val { color:var(--red); } .mini-kpi.t-pos .mk-val { color:var(--teal-dark); } .mini-kpi.t-inv .mk-val { color:var(--invest); }
-    .month-alerts { margin-top:2px; }
-    .rate .mini-kpis { grid-template-columns:1fr; gap:5px; margin-top:8px; }
     .mk-val.masked { filter:blur(7px); user-select:none; -webkit-user-select:none; transition:filter .25s ease; }
     .mini-kpi .mk-name { font-size:11.5px; font-weight:500; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mini-kpi .mk-val { font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
@@ -716,8 +730,9 @@
       (tp ? tp.chart + '</div>' : '') +
       '<div class="caption" title="' + esc(caption) + '">' + rich(caption) + '</div>' +
       (tp ? tp.delta : '') +
-      (id !== 'monthly' && !(id === 'cards' && (d.extra || {}).pie) ? miniKpisHtml(statTiles(d.details, dTones, DETAIL_NAMES[id])) : '') +
-      (id === 'monthly' ? miniKpisHtml(flowTiles((d.extra || {}).flow)) : '') +
+      ((d.details || []).length && id !== 'monthly' && !(id === 'cards' && (d.extra || {}).pie) ? '<ul class="details">' + d.details.map((x, i) =>
+        '<li' + (dTones[i] === 'neg' ? ' class="neg"' : '') + ' title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '') +
+      (id === 'monthly' ? flowHtml((d.extra || {}).flow) : '') +
       (id === 'cards' ? pieHtml((d.extra || {}).pie) : '') +
       miniKpisHtml((d.extra || {}).tiles, id === 'accounts');
     const kpiEl = body.querySelector('.kpi.kpi-ltr');
@@ -733,10 +748,10 @@
       /* below the month strip: the alerts, then (very last) the update time */
       const tail = el.querySelector('.edit-ctl'), upd = el.querySelector('.updated');
       if ((d.details || []).length) {
-        const box = document.createElement('div');
-        box.className = 'month-alerts';
-        box.innerHTML = miniKpisHtml(statTiles(d.details, dTones));
-        el.insertBefore(box, tail);
+        const ul = document.createElement('ul');
+        ul.className = 'details month-alerts';
+        ul.innerHTML = d.details.map(x => '<li title="' + esc(x) + '">' + rich(x) + '</li>').join('');
+        el.insertBefore(ul, tail);
       }
       if (upd) el.insertBefore(upd, tail);
     }
@@ -755,10 +770,9 @@
       '<div class="rate" data-prop="' + esc(r.prop) + '"><span class="rn">' + esc(r.name) + '</span>' +
       '<span class="rv ' + (r.tone || '') + '" dir="ltr">' + esc(r.value) + '</span>' +
       '<span class="rt">תשואה שנתית' + (r.note ? ' · ' + esc(r.note) : '') + '</span>' +
-      miniKpisHtml([
-        r.growth ? { name: 'עליית ערך', value: r.growth, tone: r.growth_tone } : null,
-        r.month_net ? { name: 'נטו החודש', value: r.month_net, tone: r.month_net_tone } : null,
-        r.profit ? { name: 'רווח נקי', value: r.profit, tone: r.profit_tone } : null].filter(Boolean)) +
+      (r.growth ? '<span class="rg"><span class="rgl">עליית ערך</span><span class="rgv ' + (r.growth_tone || '') + '" dir="ltr">' + esc(r.growth) + '</span></span>' : '') +
+      (r.month_net ? '<span class="rg"><span class="rgl">נטו החודש</span><span class="rgv ' + (r.month_net_tone || '') + '" dir="ltr">' + esc(r.month_net) + '</span></span>' : '') +
+      (r.profit ? '<span class="rg"><span class="rgl">רווח נקי</span><span class="rgv ' + (r.profit_tone || '') + '" dir="ltr">' + esc(r.profit) + '</span></span>' : '') +
       '</div>').join('') + '</div>';
   }
 
@@ -822,50 +836,20 @@
     return '<div class="pie"><div class="pie-wrap">' +
       '<svg viewBox="0 0 42 42" role="img" aria-label="' + esc(words) + '">' + arcs + '</svg>' +
       '<span class="pie-total">' + esc(p.total) + '</span></div>' +
-      miniKpisHtml(rows.map(r => {
-        const t = statTiles([r.x.label])[0] || { name: r.x.label, value: '' };
-        return { name: t.name, value: t.value, sub: Math.round(r.pc) + '%', swatch: r.color };
-      }), true) + '</div>';
+      '<ul class="pie-legend">' + rows.map(r => '<li><span class="sw" style="background:' + r.color + '"></span>' +
+        '<span class="lb" title="' + esc(r.x.label) + '">' + rich(r.x.label) + '</span><span class="pc">' + Math.round(r.pc) + '%</span></li>').join('') +
+      '</ul></div>';
   }
 
-  const DETAIL_NAMES = { files: ['קובץ', 'פורמט'], timeline: ['תאריך'] };   /* labels for lines that carry none */
-  /** A block's information lines ("label · value", "4 באיחור", "אירוע אחרון: …") as small KPI tiles - never rows of text.
-   *  Returns [{name, value, tone}]; a line that has no label gets a value-only tile. */
-  function statTiles(details, tones, names) {
-    return (details || []).map((line, i) => {
-      line = String(line == null ? '' : line).trim();
-      let name = '', value = line, m;
-      if ((m = line.match(/^([^:·]{2,40}):\s*(.+)$/))) { name = m[1]; value = m[2]; }              /* "אירוע אחרון: חתימה · 09.10.26" */
-      else if (line.indexOf(' · ') > 0) { const k = line.indexOf(' · '); name = line.slice(0, k); value = line.slice(k + 3); }
-      else if ((m = line.match(/^([+\-−]?\d[\d,.]*\S*)\s+(.+)$/))) { value = m[1]; name = m[2]; }  /* "4 באיחור" */
-      return { name: name || (names || [])[i] || '', value, tone: (tones || [])[i] || null };
-    }).filter(t => t.value);
-  }
-
-  /** Income / spending / net / investments of the last and the current month as four tiles: the last month's
-   *  figure, and under it the current month so far. */
-  function flowTiles(flow) {
-    if (!flow || !flow.length) return [];
-    const prev = flow[0], cur = flow[1];
-    const month = f => f.label.split(' ')[0];
-    const row = (name, key, tone) => ({
-      name, value: shekels(prev[key]), tone: typeof tone === 'function' ? tone(prev[key]) : tone,
-      sub: cur ? month(cur) + ' עד היום · ' + shekels(cur[key]) : null });
-    return [row('הכנסות', 'income', 'pos'), row('הוצאות', 'spend', 'neg'),
-            row('נטו', 'net', v => v >= 0 ? 'pos' : 'neg'), row('השקעות נטו', 'invest', 'inv')];
-  }
-
-  /** Small KPI boxes inside a block ([{name, value, tone, sub, color, alert, main}]): one tile per fact. */
+  /** Small KPI boxes inside a block (extra.tiles: [{name, value, color}]), e.g. one per bill. */
   function miniKpisHtml(tiles, big) {
     if (!tiles || !tiles.length) return '';
     return '<div class="mini-kpis' + (big ? ' big' : '') + '">' + tiles.map(t =>
-      '<div class="mini-kpi' + (t.color ? ' coloured' : '') + (t.alert ? ' alert' : '') + (t.main ? ' main' : '') + (t.tone ? ' t-' + t.tone : '') + '"' + (t.color ? ' style="--mk:' + esc(t.color) + '"' : '') + '>' +
-        (t.name ? '<span class="mk-name" title="' + esc(t.name + (t.since ? ' · לא עודכן מאז ' + t.since : '')) + '">' +
-          (t.swatch ? '<i class="sw" style="background:' + t.swatch + '"></i>' : '') +
+      '<div class="mini-kpi' + (t.color ? ' coloured' : '') + (t.alert ? ' alert' : '') + (t.main ? ' main' : '') + '"' + (t.color ? ' style="--mk:' + esc(t.color) + '"' : '') + '>' +
+        '<span class="mk-name" title="' + esc(t.name + (t.since ? ' · לא עודכן מאז ' + t.since : '')) + '">' +
           (t.alert ? '<svg viewBox="0 0 24 24" role="img" aria-label="לא עודכן"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18.5h.01"/></svg>' : '') +
-          esc(t.name) + '</span>' : '') +
-        '<span class="mk-val" dir="' + (/^[-+−\d₪]/.test(t.value) ? 'ltr' : 'auto') + '" title="' + esc(t.value) + '">' + esc(t.value) + '</span>' +
-        (t.sub ? '<span class="mk-sub">' + esc(t.sub) + '</span>' : '') +
+          esc(t.name) + '</span>' +
+        '<span class="mk-val" dir="ltr">' + esc(t.value) + '</span>' +
       '</div>').join('') + '</div>';
   }
 
@@ -893,6 +877,20 @@
       '</svg></div>',
       delta: '<div class="' + cls + '"><div class="tr"><span class="tp" dir="ltr">' + (down ? '▼ ' : '▲ ') + pctTxt + '(' + amtTxt + ')</span>' +
         '<span class="tw">מול ' + esc(since) + '</span></div></div>' };
+  }
+
+  /** Net income and net investments of the previous and the current month (extra.flow), as a small table. */
+  function flowHtml(flow) {
+    if (!flow || !flow.length) return '';
+    const cell = (v, cls) => '<span class="fv ' + cls + '" dir="ltr">' + shekels(v) + '</span>';
+    return '<div class="flow">' +
+      '<span></span>' + flow.map((f, i) => '<span class="fh" title="' + esc(f.label) + (i === flow.length - 1 ? ' — עד היום' : '') + '">' +
+        esc(f.label.split(' ')[0]) + '</span>').join('') +
+      '<span class="fl">הכנסות</span>' + flow.map(f => cell(f.income, 'pos')).join('') +
+      '<span class="fl">הוצאות</span>' + flow.map(f => cell(f.spend, 'neg')).join('') +
+      '<span class="fl">נטו</span>' + flow.map(f => cell(f.net, f.net >= 0 ? 'pos' : 'neg')).join('') +
+      '<span class="fl">השקעות נטו</span>' + flow.map(f => cell(f.invest, 'inv')).join('') +
+    '</div>';
   }
 
   let pickedMonth = null;   /* month chosen in the picker; survives repaints (refresh) */

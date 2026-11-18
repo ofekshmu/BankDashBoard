@@ -91,20 +91,22 @@
 
     /* ── Attention strip ── */
     .attention { max-width:1200px; margin:0 auto; padding:8px 16px 0; }
-    .att-box { background:var(--glass); border-radius:var(--r-card); border:1px solid var(--glass-line); box-shadow:var(--shadow-card);
-               -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); padding:12px 14px;
+    /* one slim bar: a label, then each alert as a compact chip that wraps - no full-width row per alert */
+    .att-box { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; width:fit-content; max-width:100%;
+               background:var(--glass); border-radius:var(--r-card); border:1px solid var(--glass-line); box-shadow:var(--shadow-card);
+               -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); padding:6px 8px 6px 12px;
                border-right:3px solid var(--amber); }
     .att-box.has-red { border-right-color:var(--red); }
-    .att-box.ok { border-right-color:var(--teal); }
-    .att-head { font-size:13px; font-weight:700; margin-bottom:6px; }
-    .att-list { display:flex; flex-direction:column; }
-    .att-item { display:flex; align-items:center; gap:10px; min-width:0; padding:7px 4px; border-top:1px solid var(--border);
-                color:inherit; text-decoration:none; font-size:13px; border-radius:8px; }
-    .att-item:first-child { border-top:0; }
-    .att-item:hover { background:var(--bg); }
+    .att-box.ok { border-right-color:var(--teal); padding:6px 12px; }
+    .att-head { font-size:12.5px; font-weight:700; color:var(--muted); margin:0; }
+    .att-list { display:flex; flex-wrap:wrap; gap:6px; min-width:0; }
+    .att-item { display:inline-flex; align-items:center; gap:7px; min-width:0; max-width:100%; padding:4px 10px;
+                background:rgba(255,255,255,.6); border:1px solid var(--border); border-radius:var(--r-badge);
+                color:inherit; text-decoration:none; font-size:12.5px; transition:background .15s; }
+    .att-item:hover { background:rgba(255,255,255,.95); }
     .att-item .att-title { flex:none; font-weight:600; }
-    .att-item .att-text { flex:1; min-width:0; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .att-item .att-go { flex:none; color:var(--teal); font-size:16px; line-height:1; }
+    .att-item .att-text { min-width:0; max-width:44ch; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .att-item .att-go { flex:none; color:var(--teal); font-size:15px; line-height:1; }
     .att-ok { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--green); font-weight:600; }
     .att-ok svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
 
@@ -131,12 +133,7 @@
     .edit-ctl button:hover:not(:disabled) { border-color:var(--teal); color:var(--teal); }
     .edit-ctl button:disabled { opacity:.35; cursor:default; }
     .edit-ctl svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-    @media (max-width:480px) {
-      .att-item { align-items:flex-start; flex-wrap:wrap; gap:4px 8px; }
-      .att-item .dot { margin-top:5px; }
-      .att-item .att-text { flex-basis:100%; order:3; white-space:normal; padding-right:17px; }
-      .att-item .att-go { margin-right:auto; }
-    }
+    @media (max-width:480px) { .att-box { width:100%; } .att-item { width:100%; } .att-item .att-text { flex:1; max-width:none; white-space:normal; } }
     /* the monthly block is the tallest (table + month strip): give it two rows so its neighbours don't stretch */
     @media (min-width:560px) { #blk-monthly { grid-row:span 2; } }
     #blk-monthly .card-link { flex:none; }          /* the month strip follows the table instead of sinking to the bottom */

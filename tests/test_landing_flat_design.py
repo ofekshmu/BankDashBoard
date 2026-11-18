@@ -46,3 +46,10 @@ def test_accounts_is_primary_and_monthly_second():
 
 def test_eye_button_sits_above_the_card_link_overlay():
     assert re.search(r'\.mask-btn \{ position:relative; z-index:2', HTML)
+
+
+def test_alerts_strip_is_one_compact_wrapping_bar():
+    box = re.search(r'\.att-box \{[^}]*\}', HTML).group(0)
+    assert 'flex-wrap:wrap' in box and 'width:fit-content' in box
+    chip = re.search(r'\.att-item \{[^}]*\}', HTML).group(0)
+    assert 'inline-flex' in chip              # a chip, not a full-width row

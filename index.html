@@ -207,6 +207,11 @@
     .rate .rv { font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; direction:ltr; text-align:right; line-height:1.2; }
     .rate .rv.pos { color:var(--green); } .rate .rv.neg { color:var(--red); }
     .rate .rt { font-size:10.5px; color:var(--muted); }
+    /* the growth in money, under the rate: a rate alone doesn't show how much it is */
+    .rate .rg { display:flex; justify-content:space-between; align-items:baseline; gap:6px; margin-top:6px; padding-top:6px; border-top:1px solid var(--border); font-size:12px; }
+    .rate .rgl { color:var(--muted); }
+    .rate .rgv { font-weight:600; font-variant-numeric:tabular-nums; }
+    .rate .rgv.pos { color:var(--green); } .rate .rgv.neg { color:var(--red); }
 
     /* Plants to water: their drawn icons (or photos) in a swipeable strip, a ring marking overdue / due today */
     .pstrip { position:relative; display:flex; align-items:center; gap:4px; margin-top:8px; padding-top:10px; border-top:1px solid var(--border); z-index:1; }
@@ -225,14 +230,14 @@
     .pchip.late .ps { color:var(--red); font-weight:600; }
 
     /* Pie of the active cards: each card's share of the month's charges */
-    .pie { display:flex; align-items:center; gap:14px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
-    .pie svg { flex:none; width:96px; height:96px; transform:rotate(-90deg); }
+    .pie { display:flex; flex-direction:column; align-items:center; gap:12px; margin-top:10px; padding-top:12px; border-top:1px solid var(--border); }
+    .pie svg { display:block; flex:none; width:100%; height:100%; transform:rotate(-90deg); }
     .pie circle { fill:none; stroke-width:6; transition:stroke-width .15s; }
     .pie circle:hover { stroke-width:8; }
-    .pie-total { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700;
+    .pie-total { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:700;
                  font-variant-numeric:tabular-nums; direction:ltr; }
-    .pie-wrap { position:relative; flex:none; width:96px; height:96px; }
-    .pie-legend { list-style:none; display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; font-size:12.5px; }
+    .pie-wrap { position:relative; flex:none; width:min(100%, 168px); aspect-ratio:1; }
+    .pie-legend { list-style:none; display:flex; flex-direction:column; gap:4px; min-width:0; width:100%; font-size:12.5px; }
     .pie-legend li { display:flex; align-items:center; gap:6px; min-width:0; }
     .pie-legend .sw { flex:none; width:9px; height:9px; border-radius:3px; }
     .pie-legend .lb { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -745,7 +750,9 @@
     return '<div class="rates">' + rates.map(r =>
       '<div class="rate" data-prop="' + esc(r.prop) + '"><span class="rn">' + esc(r.name) + '</span>' +
       '<span class="rv ' + (r.tone || '') + '" dir="ltr">' + esc(r.value) + '</span>' +
-      '<span class="rt">תשואה שנתית' + (r.note ? ' · ' + esc(r.note) : '') + '</span></div>').join('') + '</div>';
+      '<span class="rt">תשואה שנתית' + (r.note ? ' · ' + esc(r.note) : '') + '</span>' +
+      (r.profit ? '<span class="rg"><span class="rgl">רווח נקי</span><span class="rgv ' + (r.profit_tone || '') + '" dir="ltr">' + esc(r.profit) + '</span></span>' : '') +
+      '</div>').join('') + '</div>';
   }
 
   /** Icon of a plant: its photo when it has one, else the drawn glyph of its type (shared /plant-icons.js). */

@@ -8,14 +8,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    :root { --navy:#1e2a4a; --teal:#1e9d8b; --bg:#f4f6f9; --white:#fff; --border:#e3e7ee;
+    :root { --navy:#1e2a4a; --teal:#1e9d8b; --bg:#f4f6f9; --white:#fff; --border:#cfd6e1; --canvas:#e6ebf2;
             --muted:#6b7590; --green:#22a06b; --amber:#e8a317; --red:#d64545; --grey:#b7bfcc;
             --teal-light:#e6f5f2; --teal-dark:#167a6c; --invest:#e8a020;
             /* radii step down with the size of the part; depth comes from hairline borders, shadows only float above the page */
             --r-card:10px; --r-input:8px; --r-badge:6px; --shadow-overlay:0 8px 24px rgba(0,0,0,.18); }
     * { box-sizing:border-box; margin:0; padding:0; }
     html, body { background:var(--bg); color:var(--ink, var(--navy)); font-family:'Heebo',system-ui,sans-serif; }
-    body { min-height:100vh; overflow-x:hidden; background:var(--bg); }
+    body { min-height:100vh; overflow-x:hidden; background:var(--page-bg, var(--canvas)); }
     [hidden] { display:none !important; }
 
     /* ── Gate ── */

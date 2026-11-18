@@ -137,6 +137,14 @@ def build_monthly(months, key, payload, today=None, card_misses=None):
         dot = 'amber'
     attention = ' · '.join(x for x in (
         f"{count_text(n, 'התראה אחת', 'התראות')} ב{month_label(key)}" if n else None, misses) if x)
+    flow = extra['flow']
+    if flow:
+        # the main number is last month's net (income − spending); the alerts only colour the dot
+        last = flow[0]
+        extra.update(period=last['label'], tone='neg' if last['net'] < 0 else 'pos')
+        alerts = count_text(n, 'התראה אחת', 'התראות') if n else None
+        return block(signed_money(last['net']), f"נטו · {last['label']}", [alerts, misses],
+                     dot=dot, extra=extra, attention=attention)
     return block(str(n), f'התראות ב{month_label(key)}', [misses], dot=dot, extra=extra, attention=attention)
 
 

@@ -28,7 +28,7 @@ def test_primary_card_is_bigger_than_secondary():
 
 
 def test_mini_kpis_are_neutral_and_sparkline_has_no_area():
-    assert '--mk' not in HTML
+    assert 'mini-kpi coloured' in HTML or "' coloured'" in HTML   # only tiles that carry a colour (bills) are filled
     assert 'class="ta"' not in HTML and 'class=\\"ta\\"' not in HTML
 
 
@@ -36,3 +36,12 @@ def test_accessibility_hooks():
     assert 'role="img" aria-label="' in HTML          # sparkline + status dot
     assert 'prefers-reduced-motion' in HTML
     assert 'data-retry' in HTML
+
+
+def test_accounts_is_primary_and_monthly_second():
+    assert "['accounts', 'monthly']" in HTML
+    assert re.search(r'\.card\.lead2 \.kpi \{[^}]*font-size:30px', HTML)
+
+
+def test_eye_button_sits_above_the_card_link_overlay():
+    assert re.search(r'\.mask-btn \{ position:relative; z-index:2', HTML)

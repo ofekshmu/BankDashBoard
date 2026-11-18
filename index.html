@@ -156,6 +156,10 @@
     .kpi { font-size:22px; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums;
            overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px; color:var(--ink, var(--navy)); }
     .card.primary .kpi { font-size:40px; font-weight:700; line-height:1.1; margin-top:6px; }
+    .card.lead2 .kpi { font-size:30px; font-weight:700; line-height:1.1; margin-top:4px; }
+    .card.lead2 .caption { font-size:13.5px; }
+    /* the month a figure belongs to, large above the number */
+    .period { font-size:20px; font-weight:700; color:var(--ink, var(--navy)); line-height:1.2; margin-top:2px; }
     .card.primary .card-top { font-size:14px; }
     .card.primary .caption { font-size:14px; }
     @media (min-width:560px) { .card.primary { grid-column:span 2; padding:18px 20px; } }
@@ -163,7 +167,7 @@
     /* Accounts value: blurred until the eye is pressed (hidden on every load) */
     .kpi.masked { filter:blur(9px); user-select:none; -webkit-user-select:none; transition:filter .25s ease; }
     .kpi { transition:filter .25s ease; }
-    .mask-btn { flex:none; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:0;
+    .mask-btn { position:relative; z-index:2; flex:none; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:0;
                 border-radius:var(--r-input); background:transparent; color:var(--muted); cursor:pointer; }
     .mask-btn:hover { background:var(--bg); color:var(--ink, var(--navy)); }
     .mask-btn svg { width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
@@ -210,8 +214,11 @@
                     font-size:22px; line-height:1.25; }                          /* timeline: full event name */
     /* Small KPI boxes inside a block (extra.tiles), e.g. bills per type */
     .mini-kpis { display:grid; grid-template-columns:repeat(auto-fill, minmax(82px, 1fr)); gap:6px; margin-top:10px; }
-    .mini-kpi { display:flex; flex-direction:column; gap:2px; min-width:0; padding:6px 9px;
-                background:var(--bg); color:var(--ink, var(--navy)); border:1px solid var(--border); border-radius:var(--r-badge); }
+    .mini-kpi { --mk:var(--bg); display:flex; flex-direction:column; gap:2px; min-width:0; padding:6px 9px;
+                background:var(--mk); color:var(--ink, var(--navy)); border:1px solid var(--border); border-radius:var(--r-badge); }
+    /* a tile that carries its own colour (each bill type) is filled with it again */
+    .mini-kpi.coloured { color:#fff; border-color:transparent; text-shadow:0 1px 1px rgba(0,0,0,.18); }
+    .mini-kpi.coloured .mk-name { color:#fff; opacity:.92; }
     .mini-kpi .mk-name { font-size:11.5px; font-weight:500; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mini-kpi .mk-val { font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
     /* Accounts: 3-month sparkline + change rate */
@@ -411,8 +418,8 @@
     files:     '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/>',
   };
   const BLOCKS = [
-    { id: 'monthly',   title: 'ניתוח חודשי',      live: true, href: '/monthly' },
     { id: 'accounts',  title: 'חשבונות',          live: true, href: '/accounts' },
+    { id: 'monthly',   title: 'ניתוח חודשי',      live: true, href: '/monthly' },
     { id: 'cards',     title: 'כרטיסים',          live: true, href: '/card-analysis' },
     { id: 'housing',   title: 'דיור',             live: true, href: '/housing', prop: 'shabazi' },
     { id: 'mona',      title: 'מונה',             live: true, href: '/housing', prop: 'mona' },
@@ -539,9 +546,9 @@
   }
 
   /** Card markup for one block; edit controls are added only in edit mode. */
-  function cardHtml(id, pos, count, primaryId) {
+  function cardHtml(id, pos, count, primaryId, lead2Id) {
     const b = BLOCK_BY_ID[id], hid = isHidden(id);
-    const cls = 'card' + (b.live ? '' : ' tile') + (hid ? ' is-hidden' : '') + (id === primaryId ? ' primary' : '');
+    const cls = 'card' + (b.live ? '' : ' tile') + (hid ? ' is-hidden' : '') + (id === primaryId ? ' primary' : '') + (id === lead2Id ? ' lead2' : '');
     const link = b.live
       ? '<a class="card-link" href="' + b.href + '"' + (b.prop ? ' data-hs-prop="' + b.prop + '"' : '') + '>' +
           '<div class="card-top"><span class="title">' + esc(b.title) + '</span>' + (id === 'accounts' ? maskBtnHtml() : '') + '<span class="dot" role="img" aria-label="' + DOT_TEXT.grey + '"></span></div>' +
@@ -581,8 +588,11 @@
     const ids = editing ? layout.order : visibleIds();
     const host = document.getElementById('blocks');
     // the first visible KPI block, in the user's own order, is the primary metric
-    const primaryId = ids.find(id => BLOCK_BY_ID[id].live && !isHidden(id));
-    const cards = list => list.map(id => cardHtml(id, ids.indexOf(id), ids.length, primaryId)).join('');
+    // accounts is the main figure and the monthly analysis the second; without them, the first live blocks
+    const lead = ['accounts', 'monthly'].filter(id => ids.includes(id) && !isHidden(id));
+    const rest = ids.filter(id => BLOCK_BY_ID[id].live && !isHidden(id) && !lead.includes(id));
+    const primaryId = lead[0] || rest[0], lead2Id = lead[0] ? (lead[1] || rest[0]) : rest[1];
+    const cards = list => list.map(id => cardHtml(id, ids.indexOf(id), ids.length, primaryId, lead2Id)).join('');
     host.classList.toggle('editing', editing);
     host.innerHTML = runsOf(ids).map(r => r.live
       ? '<section class="grid">' + cards(r.ids) + '</section>'
@@ -635,6 +645,7 @@
     const wrap = id === 'timeline' ? ' kpi-wrap' : '';   /* event names show in full */
     const dTones = (d.extra || {}).detail_tones || [];
     body.innerHTML =
+      (id === 'monthly' && (d.extra || {}).period ? '<div class="period">' + esc(d.extra.period) + '</div>' : '') +
       '<div class="kpi' + ltr + tone + wrap + '" data-val="' + esc(d.kpi) + '" title="' + esc(d.kpi) + '">' + esc(d.kpi) + '</div>' +
       '<div class="caption" title="' + esc(d.caption) + '">' + rich(d.caption) + '</div>' +
       ((d.details || []).length ? '<ul class="details">' + d.details.map((x, i) =>
@@ -659,7 +670,7 @@
   function miniKpisHtml(tiles) {
     if (!tiles || !tiles.length) return '';
     return '<div class="mini-kpis">' + tiles.map(t =>
-      '<div class="mini-kpi">' +
+      '<div class="mini-kpi' + (t.color ? ' coloured' : '') + '"' + (t.color ? ' style="--mk:' + esc(t.color) + '"' : '') + '>' +
         '<span class="mk-name" title="' + esc(t.name) + '">' + esc(t.name) + '</span>' +
         '<span class="mk-val" dir="ltr">' + esc(t.value) + '</span>' +
       '</div>').join('') + '</div>';

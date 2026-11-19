@@ -57,4 +57,4 @@ def test_no_button_lifts_on_hover():
 
 
 def test_a_click_paints_no_browser_highlight_over_the_button():
-    assert '-webkit-tap-highlight-color: transparent' in CSS and 'user-select: none' in CSS
+    assert '-webkit-tap-highlight-color: rgba(0, 0, 0, 0)' in CSS and '-webkit-tap-highlight-color: transparent' in CSS and 'user-select: none' in CSS

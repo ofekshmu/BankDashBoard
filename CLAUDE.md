@@ -324,6 +324,16 @@ It has no percentage of its own: `_loadBar._setRaw` (the single place every prog
 
 ---
 
+## Buttons — one button, eight states
+
+`source/html/buttons.css` (linked by `nav.js` on every page, directly by `login.html`; public path `/buttons.css`) + `nav.js` (`initPress`, `btnState`, `btnRun`).
+Hover = `brightness(1.08)` (hover devices only); pressed = scale 97 % (98.5 % on wide buttons); focus = `:focus-visible` 2px ring, 2px offset;
+loading = `data-state="loading"` (spinner, width locked, second click swallowed); success = tick for 2 s; error = message + "נסו שוב", the next click is the retry;
+selected = a ✓ before the label (never colour alone: aria-pressed / `.active` / `.sel` of the toggle classes listed in buttons.css); disabled = 50 % with the reason (`data-reason` → `.btn-reason`).
+Use `btnRun(btn, () => fetch(...), {loading, success, error})` for an async action. A page's own `:disabled` rule must use opacity .5; no `.btn:hover` lift. Tests: `tests/test_button_states.py`.
+
+---
+
 ## Color palette
 
 | Token | Hex | Used for |

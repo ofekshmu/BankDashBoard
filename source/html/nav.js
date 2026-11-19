@@ -133,7 +133,7 @@
     var spa = current === 'monthly-page';
     var order = 0;
     function stagger(el) { el.style.setProperty('--i', Math.min(order++, STAGGER_MAX)); }
-    ['stagger', 'motion'].forEach(function (name) {   // lists/menus entrance, expand/collapse — every page
+    ['stagger', 'motion', 'buttons'].forEach(function (name) {   // lists/menus entrance, expand/collapse — every page
       if (document.getElementById(name + '-css')) return;
       var lk = document.createElement('link');
       lk.id = name + '-css';
@@ -309,9 +309,9 @@
     return f;
   }
 
-  /* Button press: sink to 95%, then spring back (a little past 100%, then settle). Every button on every page,
+  /* Button press: sink to 97% (the spec of the eight button states, buttons.css), then spring back (a little past 100%, then settle). Every button on every page,
    * through delegated pointer events and the individual `scale` property, so a button's own transform and
-   * transitions are untouched. Big buttons sink less (98%); the side-menu rows and disabled buttons are skipped. */
+   * transitions are untouched. Big buttons sink less (98.5%); the side-menu rows and disabled buttons are skipped. */
   function initPress() {
     if (window._pressInit || !document.documentElement.animate) return;
     window._pressInit = true;
@@ -343,7 +343,7 @@
       var b = pressable(e.target);
       if (!b) return;
       release(false);
-      var from = b.getBoundingClientRect().width > 240 ? 0.98 : 0.95;
+      var from = b.getBoundingClientRect().width > 240 ? 0.985 : 0.97;
       held = { el: b, from: from, anim: b.animate([{ scale: '1' }, { scale: String(from) }],
         { duration: 120, easing: 'ease-out', fill: 'forwards' }) };
     }, true);
@@ -352,6 +352,91 @@
     document.addEventListener('pointerleave', function () { release(false); }, true);
   }
   initPress();
+
+  /* Loading / success / error of a button (the other button states are plain CSS in buttons.css).
+   *   btnState(btn, 'loading', {text})   spinner, same width, a second click (mouse or keyboard) is ignored
+   *   btnState(btn, 'success', {text})   tick for 2 s, then the button is back as it was
+   *   btnState(btn, 'error',   {text})   what failed, stays until the next click (= the retry)
+   *   btnState(btn, 'default')           back to the original label
+   *   btnRun(btn, fn, {loading, success, error})   runs fn() (a promise) through these states
+   * Disabled buttons show their reason: <button disabled data-reason="האירוע מלא"> puts it beside the button. */
+  function liveRegion() {
+    var r = document.getElementById('btn-live');
+    if (!r) {
+      r = document.createElement('div');
+      r.id = 'btn-live'; r.className = 'btn-live';
+      r.setAttribute('role', 'status'); r.setAttribute('aria-live', 'polite');
+      document.body.appendChild(r);
+    }
+    return r;
+  }
+  window.btnState = function (btn, state, opts) {
+    if (!btn) return;
+    opts = opts || {};
+    if (btn._btnTimer) { clearTimeout(btn._btnTimer); btn._btnTimer = null; }
+    if (btn._btnOrig === undefined) {
+      btn._btnOrig = btn.innerHTML;
+      btn.style.minWidth = Math.ceil(btn.getBoundingClientRect().width) + 'px';   // the same width in every state
+    }
+    var msg = null;
+    if (!state || state === 'default') {
+      btn.innerHTML = btn._btnOrig;
+      btn.removeAttribute('data-state'); btn.removeAttribute('aria-busy'); btn.removeAttribute('aria-disabled');
+      return;
+    }
+    btn.setAttribute('data-state', state);
+    if (state === 'loading') {
+      btn.setAttribute('aria-busy', 'true'); btn.setAttribute('aria-disabled', 'true');
+      if (opts.text) btn.textContent = opts.text;
+      msg = opts.text;
+    } else {
+      btn.removeAttribute('aria-busy'); btn.removeAttribute('aria-disabled');
+      if (state === 'success') {
+        btn.innerHTML = window.okDraw() + (opts.text || 'בוצע');
+        msg = opts.text || 'בוצע';
+        btn._btnTimer = setTimeout(function () { window.btnState(btn, 'default'); }, 2000);
+      } else if (state === 'error') {
+        btn.textContent = (opts.text || 'נכשל') + ' · נסו שוב';
+        msg = (opts.text || 'נכשל') + '. אפשר לנסות שוב';
+      }
+    }
+    if (msg) liveRegion().textContent = msg;
+  };
+  window.btnRun = function (btn, fn, opts) {
+    opts = opts || {};
+    if (btn && btn.getAttribute('data-state') === 'loading') return Promise.resolve();
+    window.btnState(btn, 'loading', { text: opts.loading });
+    return Promise.resolve().then(fn).then(function (v) {
+      window.btnState(btn, 'success', { text: opts.success });
+      return v;
+    }, function (e) {
+      window.btnState(btn, 'error', { text: typeof opts.error === 'function' ? opts.error(e) : opts.error });
+      throw e;
+    });
+  };
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('[data-state]');
+    if (!b) return;
+    if (b.getAttribute('data-state') === 'loading') { e.preventDefault(); e.stopImmediatePropagation(); }   // second click ignored
+    else if (b.getAttribute('data-state') === 'error') window.btnState(b, 'default');                        // a click is the retry
+  }, true);
+
+  function showReasons() {
+    var list = document.querySelectorAll('[data-reason]');
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i], why = b.getAttribute('data-reason');
+      var off = b.disabled || b.getAttribute('aria-disabled') === 'true';
+      var note = b.nextElementSibling && b.nextElementSibling.classList.contains('btn-reason') ? b.nextElementSibling : null;
+      if (off && why) {
+        if (!note) { note = document.createElement('span'); note.className = 'btn-reason'; b.insertAdjacentElement('afterend', note); }
+        note.textContent = why; b.title = why;
+      } else if (note) note.remove();
+    }
+  }
+  if (window.MutationObserver) {
+    new MutationObserver(showReasons).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['disabled', 'aria-disabled', 'data-reason'] });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showReasons); else showReasons();
 
   /* A list that is redrawn (rows replaced in one go: after tagging a row, a filter, a search) must not rise
    * again; only a list going from empty/loading to filled does. The observer marks such a container with

@@ -4168,7 +4168,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
   align-items:center;gap:8px;box-shadow:0 4px 18px rgba(30,157,139,.45);white-space:nowrap;
   transition:box-shadow .2s,opacity .2s;font-family:inherit}}
 .regen-btn:hover{{box-shadow:0 6px 24px rgba(30,157,139,.65)}}
-.regen-btn:disabled{{opacity:.65;cursor:wait}}
+.regen-btn:disabled{{opacity:.5;cursor:wait}}
 .regen-icon{{font-size:1.6em;line-height:1;display:flex;align-items:center}}
 .regen-btn.running .regen-icon{{display:none}}
 .regen-pct{{font-size:.65em;font-weight:700;color:rgba(255,255,255,.9);display:none;

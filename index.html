@@ -38,7 +38,6 @@
     #formErr { min-height:18px; font-size:12px; color:var(--red); margin:6px 0 4px; }
     #signinBtn { width:100%; padding:12px; border:0; border-radius:var(--r-input); background:var(--teal); color:var(--on-accent, #fff);
                  font:inherit; font-weight:600; font-size:15px; cursor:pointer; }
-    #signinBtn:disabled { opacity:.6; cursor:default; }
     @keyframes shake { 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
 
     /* ── Dashboard ── */
@@ -63,6 +62,7 @@
     #signOutBtn { background:color-mix(in srgb, var(--red) 12%, #fff); border-color:color-mix(in srgb, var(--red) 40%, transparent); color:var(--red); font-weight:600; }
     #signOutBtn:hover { background:color-mix(in srgb, var(--red) 20%, #fff); }
     .head-btn.on { background:var(--teal); border-color:var(--teal); color:var(--on-accent, #fff); font-weight:600; }
+    .head-btn.on::before { content:"✓"; font-weight:800; }   /* selected: never colour alone */
     #refreshBtn, #ham-btn { padding:7px 9px; }
     .head-title { display:flex; align-items:center; gap:12px; }
 
@@ -134,7 +134,7 @@
                        border:1px solid var(--border); background:var(--white); color:var(--ink, var(--navy)); border-radius:8px;
                        cursor:pointer; font:inherit; font-size:15px; }
     .edit-ctl button:hover:not(:disabled) { border-color:var(--teal); color:var(--teal); }
-    .edit-ctl button:disabled { opacity:.35; cursor:default; }
+    .edit-ctl button:disabled { opacity:.5; cursor:default; }
     .edit-ctl svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
     @media (max-width:480px) { .att-box { width:100%; } .att-item { width:100%; } .att-item .att-text { flex:1; max-width:none; white-space:normal; } }
     #blk-monthly .card-link { flex:none; }          /* the month strip follows the table instead of sinking to the bottom */
@@ -448,9 +448,9 @@
     const btn = document.getElementById('signinBtn');
     inp.classList.remove('err'); err.textContent = '';
     if (!inp.value) { inp.classList.add('err'); err.textContent = 'נא להזין סיסמה'; return; }
-    btn.disabled = true;
+    if (window.btnState) window.btnState(btn, 'loading', { text: 'בודק…' }); else btn.disabled = true;
     const ok = await trySignIn(inp.value);
-    btn.disabled = false;
+    if (window.btnState) window.btnState(btn, ok ? 'default' : 'error', { text: signInLocked ? 'יותר מדי ניסיונות' : 'סיסמה שגויה' }); else btn.disabled = false;
     if (ok) { inp.value = ''; enterDashboard(); return; }
     inp.value = '';
     void inp.offsetWidth;
@@ -1063,7 +1063,9 @@
     editBtn.setAttribute('aria-pressed', String(editing));
     editBtn.querySelector('span').textContent = editing ? 'סיום' : 'סידור';
     document.getElementById('editBanner').hidden = !editing;
-    refreshBtn.disabled = refreshing || editing;
+    refreshBtn.disabled = editing;                 /* while refreshing the spinning icon is the loading state and refreshAll ignores a second click */
+    refreshBtn.setAttribute('aria-busy', String(refreshing));
+    refreshBtn.setAttribute('data-reason', 'לא בזמן סידור הכרטיסים');
     refreshBtn.classList.toggle('spin', refreshing);
   }
 

@@ -45,7 +45,7 @@ def test_side_menu_items_carry_an_index_and_use_the_same_numbers():
 
 
 def test_nav_js_links_the_stagger_sheet_and_the_server_serves_it_publicly():
-    assert "['stagger', 'motion']" in _read('nav.js')
+    assert "['stagger', 'motion', 'buttons']" in _read('nav.js')
     src = open(os.path.join(HTML, '..', 'WebApp.py'), encoding='utf-8').read()
     for name in ('stagger', 'motion'):
         assert "'/%s.css'" % name in src and "@app.route('/%s.css')" % name in src
@@ -58,9 +58,9 @@ def test_expand_uses_the_shared_ease_out_350ms():
     assert 'cubic-bezier(.16,1,.3,1)' in _read('Search.html')
 
 
-def test_button_press_sinks_to_95_and_springs_back():
+def test_button_press_sinks_to_97_and_springs_back():
     js = _read('nav.js')
-    assert 'initPress()' in js and '0.95' in js and "scale: '1.04'" in js
+    assert 'initPress()' in js and '0.97' in js and "scale: '1.04'" in js
     assert "classList.contains('nav-item')" in js    # side-menu rows are not pressed
 
 

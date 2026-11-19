@@ -505,7 +505,7 @@ if not (os.environ.get('ADMIN_PASSWORD') or os.environ.get('DASHBOARD_PASSWORD')
 _PUBLIC_PATHS = {
     '/', '/favicon.ico', '/favicon.svg',
     '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png',
-    '/manifest.json', '/design-system.css', '/palettes.css', '/stagger.css', '/motion.css', '/nav.js', '/plant-icons.js',
+    '/manifest.json', '/design-system.css', '/palettes.css', '/stagger.css', '/motion.css', '/buttons.css', '/nav.js', '/plant-icons.js',
     '/api/auth/verify', '/api/auth/check', '/api/version',
 }
 
@@ -732,6 +732,14 @@ def _revalidate_pages_and_assets(resp):
     resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
     resp.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
     resp.headers.setdefault('Referrer-Policy', 'same-origin')
+    return resp
+
+
+@app.route('/buttons.css')
+def serve_buttons_css():
+    """The eight button states (source/html/buttons.css); nav.js links it on every page, login.html directly."""
+    resp = send_file(os.path.join(_HERE, 'html', 'buttons.css'), mimetype='text/css', max_age=0)
+    resp.headers['Cache-Control'] = 'no-cache'
     return resp
 
 
@@ -3581,7 +3589,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .org-regen-fab{position:fixed;bottom:22px;right:18px;z-index:500}
 .org-regen-btn{height:52px;padding:0 22px;background:var(--teal);color:#fff;border:none;border-radius:26px;font-size:.85em;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(30,157,139,.45);white-space:nowrap;transition:box-shadow .2s,opacity .2s}
 .org-regen-btn:hover{box-shadow:0 6px 24px rgba(30,157,139,.65)}
-.org-regen-btn:disabled{opacity:.65;cursor:wait}
+.org-regen-btn:disabled{opacity:.5;cursor:wait}
 .org-regen-icon{font-size:1.6em;line-height:1;display:flex;align-items:center}
 .org-regen-btn.running .org-regen-icon{display:none}
 .org-regen-pct{font-size:.65em;font-weight:700;color:rgba(255,255,255,.9);display:none;line-height:1;margin-top:2px;letter-spacing:.02em}

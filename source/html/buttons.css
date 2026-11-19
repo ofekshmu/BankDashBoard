@@ -17,13 +17,13 @@
 }
 
 /* The blue flash on a phone tap is the browser's tap highlight, painted on whatever is clickable - cards, links,
-   rows with an onclick, not only buttons - in that element's own (often rounded) box. Off everywhere. */
-html, body, *, *::before, *::after { -webkit-tap-highlight-color: rgba(0, 0, 0, 0); }
-a, label, summary, [onclick], [tabindex] { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+   rows with an onclick, not only buttons - in that element's own (often rounded) box. White (not the default blue) everywhere. */
+html, body, *, *::before, *::after { -webkit-tap-highlight-color: rgba(255, 255, 255, .45); }
+a, label, summary, [onclick], [tabindex] { -webkit-tap-highlight-color: rgba(255, 255, 255, .45); -webkit-touch-callout: none; }
 
 /* A click or tap must not paint the browser's blue highlight or select the label over the button. */
 :where(button, [role="button"], input[type="button"], input[type="submit"], .btn) {
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: rgba(255, 255, 255, .45);
   -webkit-user-select: none; user-select: none;
   touch-action: manipulation;
 }

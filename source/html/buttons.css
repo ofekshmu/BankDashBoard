@@ -16,6 +16,14 @@
   --btn-err: var(--red, #c0392b);
 }
 
+/* A click or tap must not paint the browser's blue highlight or select the label over the button. */
+:where(button, [role="button"], input[type="button"], input[type="submit"], .btn) {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none; user-select: none;
+  touch-action: manipulation;
+}
+:where(button, [role="button"], .btn)::selection, :where(button, [role="button"], .btn) *::selection { background: transparent; }
+
 /* ── Hover: 8 % lighter ──────────────────────────────────── */
 :where(button, [role="button"], input[type="button"], input[type="submit"], .btn) {
   transition: filter .15s, background-color .15s, border-color .15s, color .15s, opacity .15s;

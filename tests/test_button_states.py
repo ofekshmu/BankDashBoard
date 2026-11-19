@@ -54,3 +54,7 @@ def test_stylesheet_is_served_publicly_and_linked_everywhere():
 def test_no_button_lifts_on_hover():
     for p in PAGES:
         assert not re.search(r'\.btn:hover *\{ *transform: *translateY', p.read_text(encoding='utf-8')), p.name
+
+
+def test_a_click_paints_no_browser_highlight_over_the_button():
+    assert '-webkit-tap-highlight-color: transparent' in CSS and 'user-select: none' in CSS

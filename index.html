@@ -198,6 +198,7 @@
     #boot img { width:72px; height:72px; border-radius:18px; }
     #boot .boot-bar { width:140px; height:4px; border-radius:2px; background:var(--c-alt-bg, #e6eaf0); overflow:hidden; direction:ltr; }
     #boot .boot-fill { height:100%; width:0; background:var(--teal, #1e9d8b); border-radius:2px; transition:width .25s ease; }
+    #boot .boot-what { font-size:12px; color:var(--muted); min-height:1.4em; }
     #boot .boot-pct { font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; direction:ltr; }
     /* Reveal: once everything is loaded, each tile slides in after the one before it */
     @keyframes tile-in { from { opacity:0; translate:0 28px; } }
@@ -346,6 +347,7 @@
   <img src="/favicon.svg" alt="">
   <div class="boot-bar"><div class="boot-fill" id="bootFill"></div></div>
   <div class="boot-pct" id="bootPct">0%</div>
+  <div class="boot-what" id="bootWhat"></div>
 </div>
 
 <!-- Sign-in gate: the only thing a visitor without a session sees -->
@@ -622,7 +624,14 @@
     if (!missing.length) { revealDashboard(false); return; }
     setBootProgress(0);
     let done = 0;
-    Promise.all(missing.map(id => loadBlock(id, false).then(() => setBootProgress(++done / missing.length)))).then(() => {
+    const pending = missing.slice();
+    const say = () => { document.getElementById('bootWhat').textContent = pending.length ? BLOCK_BY_ID[pending[0]].title + '…' : ''; };
+    say();   /* names the first block still loading; moves on as each one arrives */
+    Promise.all(missing.map(id => loadBlock(id, false).then(() => {
+      pending.splice(pending.indexOf(id), 1);
+      setBootProgress(++done / missing.length);
+      say();
+    }))).then(() => {
       if (gen === _gen) revealDashboard(true);
     });
   }

@@ -12,6 +12,7 @@ def test_splash_is_in_the_markup_with_progress_bar_and_percent():
 def test_dashboard_is_revealed_only_after_all_blocks_load():
     assert 'revealDashboard(true)' in HTML
     assert 'Promise.all(missing.map' in HTML
+    assert 'id="bootWhat"' in HTML
 
 
 def test_tiles_slide_in_and_blocks_are_cached_per_tab():

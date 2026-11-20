@@ -200,7 +200,7 @@
     #boot .boot-fill { height:100%; width:0; background:var(--teal, #1e9d8b); border-radius:2px; transition:width .25s ease; }
     #boot .boot-pct { font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; direction:ltr; }
     /* Reveal: once everything is loaded, each tile slides in after the one before it */
-    @keyframes tile-in { from { opacity:0; transform:translateY(28px); } }
+    @keyframes tile-in { from { opacity:0; translate:0 28px; } }
     #blocks.enter .card { animation:tile-in .5s cubic-bezier(.2,.7,.2,1) backwards; animation-delay:calc(var(--i, 0) * 60ms); }
     @media (prefers-reduced-motion: reduce) { #blocks.enter .card { animation:none; } #boot { transition:none; } }
     /* Month picker: a strip of months, swiped by finger or stepped with the mouse wheel / arrow keys */

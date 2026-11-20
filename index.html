@@ -191,6 +191,18 @@
     .card.primary .skel { height:40px; width:50%; }
     .skel.s2 { height:12px; width:85%; }
     @keyframes skel-pulse { 50% { opacity:.45; } }
+    /* Boot splash: only the app icon and a thin progress bar with its percentage, until the whole dashboard is loaded */
+    #boot { position:fixed; inset:0; z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center;
+            gap:14px; background:var(--bg, #f4f6fa); transition:opacity .35s ease; }
+    #boot.done { opacity:0; pointer-events:none; }
+    #boot img { width:72px; height:72px; border-radius:18px; }
+    #boot .boot-bar { width:140px; height:4px; border-radius:2px; background:var(--c-alt-bg, #e6eaf0); overflow:hidden; direction:ltr; }
+    #boot .boot-fill { height:100%; width:0; background:var(--teal, #1e9d8b); border-radius:2px; transition:width .25s ease; }
+    #boot .boot-pct { font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; direction:ltr; }
+    /* Reveal: once everything is loaded, each tile slides in after the one before it */
+    @keyframes tile-in { from { opacity:0; transform:translateY(28px); } }
+    #blocks.enter .card { animation:tile-in .5s cubic-bezier(.2,.7,.2,1) backwards; animation-delay:calc(var(--i, 0) * 60ms); }
+    @media (prefers-reduced-motion: reduce) { #blocks.enter .card { animation:none; } #boot { transition:none; } }
     /* Month picker: a strip of months, swiped by finger or stepped with the mouse wheel / arrow keys */
     .month-row { display:flex; flex-direction:column; gap:8px; margin-top:8px; position:relative; z-index:1; }
     .mstrip { display:flex; gap:6px; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none;
@@ -329,6 +341,13 @@
 </head>
 <body>
 
+<!-- Boot splash: visible from the first paint; hidden once the dashboard (or the sign-in gate) is ready -->
+<div id="boot" role="status" aria-live="polite" aria-label="טוען">
+  <img src="/favicon.svg" alt="">
+  <div class="boot-bar"><div class="boot-fill" id="bootFill"></div></div>
+  <div class="boot-pct" id="bootPct">0%</div>
+</div>
+
 <!-- Sign-in gate: the only thing a visitor without a session sees -->
 <div id="gate" hidden>
   <form class="gate-box" onsubmit="handleSignIn(event)" autocomplete="off">
@@ -421,6 +440,8 @@
     _gen++;
     resetDashState();
     document.getElementById('dash').hidden = true;
+    hideBoot();
+    clearLandingCache();
     document.getElementById('blocks').innerHTML = '';
     document.getElementById('attention').hidden = true;
     document.getElementById('attention').innerHTML = '';
@@ -438,7 +459,7 @@
     _fadeTimer = setTimeout(() => { _fadeTimer = null; gate.hidden = true; }, 300);
     _gen++;
     resetDashState();
-    document.getElementById('dash').hidden = false;
+    showBoot();
     renderDashboard();
   }
 
@@ -594,8 +615,59 @@
     fetch('/api/version').then(r => r.json()).then(d => {
       if (d.version) document.getElementById('versionBadge').textContent = 'v' + d.version;
     }).catch(() => {});
+    const gen = _gen, ids = visibleLiveIds(), cache = readLandingCache();
+    ids.forEach(id => { if (cache[id]) blockData[id] = cache[id]; });   /* back on the dashboard: reuse what this tab already loaded */
     renderGrid();
-    visibleLiveIds().forEach(id => loadBlock(id, false));
+    const missing = ids.filter(id => !blockData[id]);
+    if (!missing.length) { revealDashboard(false); return; }
+    setBootProgress(0);
+    let done = 0;
+    Promise.all(missing.map(id => loadBlock(id, false).then(() => setBootProgress(++done / missing.length)))).then(() => {
+      if (gen === _gen) revealDashboard(true);
+    });
+  }
+
+  /* ── Boot splash + load cache ── */
+  const CACHE_KEY = 'landing_blocks_v1';
+  /** Blocks loaded earlier in this tab ({id: {d, at}}); empty when storage is unavailable. */
+  function readLandingCache() {
+    try { return JSON.parse(sessionStorage.getItem(CACHE_KEY) || '{}') || {}; } catch (e) { return {}; }
+  }
+  /** Save every successfully loaded block so a return to the dashboard needs no requests. */
+  function writeLandingCache() {
+    const out = {};
+    Object.keys(blockData).forEach(id => { if (blockData[id] && blockData[id].d) out[id] = blockData[id]; });
+    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(out)); } catch (e) {}
+  }
+  function clearLandingCache() { try { sessionStorage.removeItem(CACHE_KEY); } catch (e) {} }
+  function showBoot() {
+    const b = document.getElementById('boot');
+    b.hidden = false; b.classList.remove('done');
+    setBootProgress(0);
+  }
+  function hideBoot() {
+    const b = document.getElementById('boot');
+    b.classList.add('done');
+    setTimeout(() => { if (b.classList.contains('done')) b.hidden = true; }, 400);
+  }
+  /** Progress bar and percentage; `frac` is 0..1. */
+  function setBootProgress(frac) {
+    const pct = Math.round(Math.max(0, Math.min(1, frac)) * 100);
+    document.getElementById('bootFill').style.width = pct + '%';
+    document.getElementById('bootPct').textContent = pct + '%';
+  }
+  /** Show the whole dashboard at once; with `animate` every tile slides in one after another. */
+  function revealDashboard(animate) {
+    const host = document.getElementById('blocks');
+    host.classList.remove('enter');
+    if (animate) {
+      host.querySelectorAll('.card').forEach((c, i) => c.style.setProperty('--i', Math.min(i, 12)));
+      host.classList.add('enter');
+      setTimeout(() => host.classList.remove('enter'), 1500);   /* later repaints (edit mode, refresh) must not replay it */
+    }
+    document.getElementById('dash').hidden = false;
+    setBootProgress(1);
+    hideBoot();
   }
 
   /** The eye button of the accounts value: crossed eye = hidden (blurred), open eye = shown. */
@@ -693,6 +765,7 @@
     blockData[id] = d && d.ok ? { d, at: Date.now() - (Number(d.age) || 0) * 1000 } : { err: true };
     paintBlock(id);
     renderAttention();
+    writeLandingCache();
   }
 
   /** Paint a live block's body, dot, month picker and freshness label from blockData. */

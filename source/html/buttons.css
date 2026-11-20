@@ -1,0 +1,87 @@
+/* ============================================================
+   One button, eight states — every button on every page.
+   Default / Hover / Pressed / Focus / Loading / Success-Error / Selected / Disabled.
+   Linked by nav.js (and login.html); the logic of loading / success / error is window.btnState (nav.js).
+     Hover     8 % lighter (touch screens skip it: the press covers them)
+     Pressed   scale 97 % — set by nav.js (initPress), so a button's own transform is untouched
+     Focus     2 px ring, 2 px away from the edge, keyboard only (:focus-visible)
+     Loading   spinner, same width, a second click is ignored (data-state="loading")
+     Success   tick for 2 s / Error: what failed + "נסו שוב" (data-state="success" | "error")
+     Selected  never colour alone: a tick in front of the label (aria-pressed / aria-selected / .active)
+     Disabled  50 % opacity, with the reason beside the button (data-reason)
+   ============================================================ */
+:root {
+  --btn-ring: var(--teal, #1e9d8b);
+  --btn-ok: #1b8a5a;
+  --btn-err: var(--red, #c0392b);
+}
+
+/* The blue flash on a phone tap is the browser's tap highlight, painted on whatever is clickable - cards, links,
+   rows with an onclick, not only buttons - in that element's own (often rounded) box. White (not the default blue) everywhere. */
+html, body, *, *::before, *::after { -webkit-tap-highlight-color: rgba(255, 255, 255, .45); }
+a, label, summary, [onclick], [tabindex] { -webkit-tap-highlight-color: rgba(255, 255, 255, .45); -webkit-touch-callout: none; }
+
+/* A click or tap must not paint the browser's blue highlight or select the label over the button. */
+:where(button, [role="button"], input[type="button"], input[type="submit"], .btn) {
+  -webkit-tap-highlight-color: rgba(255, 255, 255, .45);
+  -webkit-user-select: none; user-select: none;
+  touch-action: manipulation;
+}
+:where(button, [role="button"], .btn)::selection, :where(button, [role="button"], .btn) *::selection { background: transparent; }
+
+/* ── Hover: 8 % lighter ──────────────────────────────────── */
+:where(button, [role="button"], input[type="button"], input[type="submit"], .btn) {
+  transition: filter .15s, background-color .15s, border-color .15s, color .15s, opacity .15s;
+}
+@media (hover: hover) {
+  :where(button, [role="button"], input[type="button"], input[type="submit"], .btn):not(:disabled):not([aria-disabled="true"]):not([data-state="loading"]):hover {
+    filter: brightness(1.08);
+  }
+}
+
+/* ── Focus: 2 px ring, 2 px offset, keyboard users only ─── */
+:where(button, [role="button"], input[type="button"], input[type="submit"], .btn, a.btn):focus-visible {
+  outline: 2px solid var(--btn-ring) !important;
+  outline-offset: 2px !important;
+}
+:where(button, [role="button"], .btn):focus:not(:focus-visible) { outline: none; }
+
+/* ── Loading: spinner in the same width, clicks ignored ─── */
+[data-state="loading"] { cursor: progress; pointer-events: none; }
+[data-state="loading"]::before {
+  content: ""; flex: none; display: inline-block; box-sizing: border-box;
+  width: 1em; height: 1em; margin-inline-end: .5em; vertical-align: -.15em;
+  border: 2px solid currentColor; border-inline-end-color: transparent; border-radius: 50%;
+  animation: btn-spin .7s linear infinite;
+}
+@keyframes btn-spin { to { transform: rotate(360deg); } }
+
+/* ── Success / Error: the tick for 2 s, or what failed ──── */
+[data-state="success"] { background: var(--btn-ok) !important; border-color: var(--btn-ok) !important; color: #fff !important; }
+[data-state="success"] .ok-draw { margin-inline-end: 6px; }
+[data-state="error"] { background: var(--btn-err) !important; border-color: var(--btn-err) !important; color: #fff !important; }
+[data-state="error"]::before { content: "!"; font-weight: 800; margin-inline-end: .45em; }
+
+/* ── Selected: label + tick, never colour alone ─────────── */
+.btn[aria-pressed="true"]::before, .btn[aria-selected="true"]::before,
+.mchip.sel::before, .filter-btn.active::before, .tab-btn.active::before, .cat-pill.active::before,
+.db-fmt-btn.active::before, .ca-month-chip.active::before, .hs-top-btn.active::before,
+.hs-nav-btn.active::before, .acct-toggle-btn.active::before, .c-opt.sel::before {
+  content: "✓"; font-weight: 800; margin-inline-end: .4em; flex: none;
+}
+
+[data-state="loading"]::before { content: ""; }
+[data-state="error"]::before { content: "!"; }
+
+/* ── Disabled: 50 %, with the reason beside it ──────────── */
+:where(button, [role="button"], input[type="button"], input[type="submit"], .btn):is(:disabled, [aria-disabled="true"]) {
+  opacity: .5; cursor: not-allowed; filter: none;
+}
+.btn-reason { display: inline-block; margin-inline-start: 8px; font-size: .78em; color: var(--text-muted, #667085); vertical-align: middle; }
+
+.btn-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-state="loading"]::before { animation-duration: 1.6s; }
+  :where(button, [role="button"], .btn) { transition: none; }
+}

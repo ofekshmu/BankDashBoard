@@ -100,7 +100,11 @@ class Formats:
                                     "Cell currency": False,
                                     "Cell currency headers": [],
                                     "Transaction Names": {"4046" : ["4046 - ישראכרט", '4046 - ישראכרט בע"מ'],
-                                                           "2922" : ['ישראכרט בע"מ']}
+                                                           "2922" : ['ישראכרט בע"מ'],
+                                                           "4603" : ['ישראכרט בע"מ'],
+                                                           "6046" : ['ישראכרט בע"מ'],
+                                                           "1565" : ['ישראכרט בע"מ'],
+                                                           "7574" : ['ישראכרט בע"מ']}
                             },
 
                "American-Express": {"Format Name": "American-Express",

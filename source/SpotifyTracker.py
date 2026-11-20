@@ -99,18 +99,18 @@ def get_charge_suggestions(db) -> list:
 
     candidates = []
 
-    # r: (ID[0], Date[1], Name[2], Out[3])
+    # r: (ID[0], Date[1], Name[2], out[3])
     for row in db.cursor.execute("""
-        SELECT ID, Date, Name, "Out"
+        SELECT ID, Date, Name, out
         FROM BankTransactions
-        WHERE LOWER(Name) LIKE '%spotify%' AND "Out" > 0
+        WHERE LOWER(Name) LIKE %s AND out > 0
         ORDER BY Date DESC LIMIT 24
-    """).fetchall():
-        month = (row[1] or '')[:7]
+    """, ('%spotify%',)).fetchall():
+        month = str(row[1] or '')[:7]
         if month and month not in confirmed_months:
             candidates.append({
                 'tx_id':  row[0],
-                'date':   row[1],
+                'date':   str(row[1]) if row[1] else None,
                 'name':   row[2],
                 'amount': float(row[3] or 0),
                 'month':  month,
@@ -121,14 +121,14 @@ def get_charge_suggestions(db) -> list:
     for row in db.cursor.execute("""
         SELECT ID, Executed_Date, Name, Charge_Value
         FROM CardTransactions
-        WHERE LOWER(Name) LIKE '%spotify%' AND Charge_Value > 0
+        WHERE LOWER(Name) LIKE %s AND Charge_Value > 0
         ORDER BY Executed_Date DESC LIMIT 24
-    """).fetchall():
-        month = (row[1] or '')[:7]
+    """, ('%spotify%',)).fetchall():
+        month = str(row[1] or '')[:7]
         if month and month not in confirmed_months:
             candidates.append({
                 'tx_id':  row[0],
-                'date':   row[1],
+                'date':   str(row[1]) if row[1] else None,
                 'name':   row[2],
                 'amount': float(row[3] or 0),
                 'month':  month,
@@ -148,6 +148,11 @@ def get_unmatched_payments(db) -> list:
     """
     Return income transactions that look like Spotify family-member reimbursements
     and have not yet been assigned to any SpotifyMemberPayment.
+
+    A transaction that has been split is now represented by its split parts, so
+    the original row is never recommended directly. Each split part is offered
+    as its own candidate instead, whenever the part itself (or the original
+    transaction it came from) looks Spotify-related.
     db: DataBase instance (already initialised, tables ensured).
     """
     assigned = {
@@ -162,28 +167,82 @@ def get_unmatched_payments(db) -> list:
     }
     excluded = assigned | dismissed
 
-    results = []
+    # split_parents: {Original_ID -> [ {split_id, amount, description, category}, ... ]}
+    split_parents = {}
+    for row in db.cursor.execute("""
+        SELECT ID, Original_ID, Amount, Description, Category
+        FROM TransactionSplits
+        WHERE Original_Table = 'BankTransactions'
+    """).fetchall():
+        split_parents.setdefault(row[1], []).append({
+            'split_id':    row[0],
+            'amount':      float(row[2] or 0),
+            'description': row[3] or '',
+            'category':    row[4] or '',
+        })
+
     # r: (ID[0], Date[1], Name[2], Income[3], Description[4], Category[5])
+    orig_rows = {}
     for row in db.cursor.execute("""
         SELECT ID, Date, Name, Income, Description, Category
         FROM BankTransactions
         WHERE Income > 0
           AND (
-            LOWER(Name)        LIKE '%spotify%'
-            OR LOWER(Description) LIKE '%spotify%'
-            OR LOWER(Category)    LIKE '%spotify%'
+            LOWER(Name)        LIKE %s
+            OR LOWER(Description) LIKE %s
+            OR LOWER(Category)    LIKE %s
           )
         ORDER BY Date DESC LIMIT 200
-    """).fetchall():
-        if row[0] not in excluded:
+    """, ('%spotify%', '%spotify%', '%spotify%')).fetchall():
+        orig_rows[row[0]] = row
+
+    # A split original might not itself mention "spotify" (e.g. a generic bank
+    # transfer that was later split and one part tagged/described as Spotify),
+    # so fetch those too — they still need to be evaluated part-by-part below.
+    for orig_id in split_parents:
+        if orig_id not in orig_rows:
+            row = db.cursor.execute("""
+                SELECT ID, Date, Name, Income, Description, Category
+                FROM BankTransactions WHERE ID = %s
+            """, (orig_id,)).fetchone()
+            if row and float(row[3] or 0) > 0:
+                orig_rows[orig_id] = row
+
+    results = []
+    for tx_id, row in orig_rows.items():
+        _, date, name, income, description, category = row
+        splits = split_parents.get(tx_id)
+        if splits:
+            parent_matches = any(
+                'spotify' in (v or '').lower() for v in (name, description, category)
+            )
+            for s in splits:
+                if s['split_id'] in excluded:
+                    continue
+                child_matches = (
+                    'spotify' in s['description'].lower() or 'spotify' in s['category'].lower()
+                )
+                if not (parent_matches or child_matches):
+                    continue
+                results.append({
+                    'id':          s['split_id'],
+                    'date':        str(date) if date else None,
+                    'name':        name,
+                    'amount':      s['amount'],
+                    'description': s['description'] or description or '',
+                    'source':      'split',
+                    'category':    s['category'] or category or '',
+                })
+            continue
+        if tx_id not in excluded:
             results.append({
-                'id':          row[0],
-                'date':        row[1],
-                'name':        row[2],
-                'amount':      float(row[3] or 0),
-                'description': row[4] or '',
+                'id':          tx_id,
+                'date':        str(date) if date else None,
+                'name':        name,
+                'amount':      float(income or 0),
+                'description': description or '',
                 'source':      'BankTransactions',
-                'category':    row[5] or '',
+                'category':    category or '',
             })
 
     results.sort(key=lambda x: x['date'] or '', reverse=True)

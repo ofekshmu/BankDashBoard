@@ -1,851 +1,1271 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BankDash — Personal Finance Dashboard</title>
+  <title>BankDash</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    /* ── RESET ─────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --navy:#1e2a4a; --teal:#1e9d8b; --bg:#f4f6f9; --white:#fff; --border:rgba(30,90,100,.16);
+            /* frosted-glass look: a pale mint-to-sky canvas, translucent rounded cards, the app's teal accent */
+            --canvas:linear-gradient(160deg,#eef7f5 0%,#e1eff0 50%,#d3e5ee 100%);
+            --glass:rgba(255,255,255,.66); --glass-line:rgba(255,255,255,.9);
+            --shadow-card:0 8px 28px rgba(20,70,90,.10); --shadow-card-hover:0 12px 34px rgba(20,70,90,.16);
+            --muted:#6b7590; --green:#22a06b; --amber:#e8a317; --red:#d64545; --grey:#b7bfcc;
+            --teal-light:#e6f5f2; --teal-dark:#167a6c; --invest:#e8a020;
+            --r-card:22px; --r-input:14px; --r-badge:10px; --shadow-overlay:0 12px 32px rgba(10,50,70,.22); }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    html, body { background:var(--bg); color:var(--ink, var(--navy)); font-family:'Heebo',system-ui,sans-serif; }
+    body { min-height:100vh; overflow-x:hidden; background:var(--page-bg, var(--canvas)); }
+    [hidden] { display:none !important; }
 
-    :root {
-      --white:       #ffffff;
-      --off-white:   #f8fffe;
-      --green-50:    #f0faf4;
-      --green-100:   #dcf5e7;
-      --green-200:   #b8e4c9;
-      --green-300:   #8dd5a9;
-      --green-400:   #5dbf87;
-      --green-500:   #2a9d5c;
-      --green-600:   #1e7d47;
-      --green-700:   #155c34;
-      --dark:        #0f1923;
-      --gray-600:    #4a5568;
-      --gray-500:    #718096;
-      --gray-300:    #e2e8f0;
-      --gray-100:    #f7fafc;
-      --shadow-sm:   0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-      --shadow-md:   0 4px 20px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.04);
-      --shadow-lg:   0 10px 40px rgba(0,0,0,.12), 0 4px 16px rgba(0,0,0,.06);
-      --shadow-g:    0 8px 30px rgba(42,157,92,.25);
-      --r-sm:  8px;
-      --r-md:  16px;
-      --r-lg:  24px;
-      --font:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      --nav-h: 72px;
-      --ease:  0.25s cubic-bezier(.4,0,.2,1);
-    }
+    /* ── Gate ── */
+    #gate { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:16px;
+            background:var(--c-alt, #0f1627); transition:opacity .3s; z-index:10; }
+    #gate.fade { opacity:0; pointer-events:none; }
+    .gate-box { width:100%; max-width:360px; background:var(--white); border-radius:var(--r-card); padding:28px 24px;
+                box-shadow:var(--shadow-overlay); text-align:center; }
+    .gate-logo { width:48px; height:48px; border-radius:14px; background:var(--teal); margin:0 auto 14px;
+                 display:flex; align-items:center; justify-content:center; }
+    .gate-box h1 { font-size:20px; font-weight:700; margin-bottom:4px; }
+    .gate-box p { font-size:13px; color:var(--muted); margin-bottom:18px; }
+    #pwInput { width:100%; padding:12px 14px; border:1px solid var(--border); border-radius:var(--r-input); font:inherit;
+               font-size:15px; outline:none; direction:ltr; text-align:center; }
+    #pwInput:focus { border-color:var(--teal); }
+    #pwInput.err { border-color:var(--red); animation:shake .4s ease; }
+    #formErr { min-height:18px; font-size:12px; color:var(--red); margin:6px 0 4px; }
+    #signinBtn { width:100%; padding:12px; border:0; border-radius:var(--r-input); background:var(--teal); color:var(--on-accent, #fff);
+                 font:inherit; font-weight:600; font-size:15px; cursor:pointer; }
+    @keyframes shake { 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
 
-    html { scroll-behavior: smooth; }
-    body { font-family: var(--font); background: var(--white); color: var(--dark); line-height: 1.6; overflow-x: hidden; }
+    /* ── Dashboard ── */
+    /* Header: flat surface with a hairline border. The accent colour is kept for the one active control. */
+    .dash-head { display:flex; align-items:center; justify-content:space-between;
+                 gap:12px; flex-wrap:wrap; max-width:1168px; width:calc(100% - 32px); margin:16px auto 0;
+                 padding:16px 20px; border-radius:var(--r-card); color:var(--ink, var(--navy));
+                 background:var(--glass); border:1px solid var(--glass-line); box-shadow:var(--shadow-card);
+                 -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+    .dash-head h1 { font-size:20px; font-weight:700; }
+    .dash-head .sub { font-size:13px; color:var(--muted); margin-top:2px; }
+    .head-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    #versionBadge { font-size:11px; color:var(--muted); background:transparent;
+                    border:1px solid var(--border); border-radius:var(--r-badge); padding:3px 8px; direction:ltr; }
+    #versionBadge:empty { display:none; }
+    .head-btn { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border);
+                background:var(--white); color:var(--ink, var(--navy)); border-radius:var(--r-input); padding:7px 12px; font:inherit;
+                font-size:13px; cursor:pointer; transition:background .15s, border-color .15s; }
+    .head-btn:hover { background:var(--bg); }
+    .head-btn svg { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+    /* sign out: filled with a soft red so it reads as the way out, distinct from the teal active controls */
+    #signOutBtn { background:color-mix(in srgb, var(--red) 12%, #fff); border-color:color-mix(in srgb, var(--red) 40%, transparent); color:var(--red); font-weight:600; }
+    #signOutBtn:hover { background:color-mix(in srgb, var(--red) 20%, #fff); }
+    .head-btn.on { background:var(--teal); border-color:var(--teal); color:var(--on-accent, #fff); font-weight:600; }
+    .head-btn.on::before { content:"✓"; font-weight:800; }   /* selected: never colour alone */
+    #refreshBtn, #ham-btn { padding:7px 9px; }
+    .head-title { display:flex; align-items:center; gap:12px; }
 
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--green-200); border-radius: 99px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--green-300); }
+    /* ── Slide-in menu (same look as the other pages' sidebar) ── */
+    .nav-overlay { position:fixed; inset:0; background:color-mix(in srgb, var(--c-alt, rgb(15,22,45)) 26%, transparent); z-index:1000; opacity:0;
+                   pointer-events:none; transition:opacity .22s ease; }
+    .nav-overlay.open { opacity:1; pointer-events:all; }
+    .sidebar { position:fixed; top:0; right:0; height:100vh; width:230px; background:var(--white); z-index:1002;
+               transform:translate3d(100%,0,0); visibility:hidden;
+               transition:transform .22s cubic-bezier(.4,0,.2,1), visibility 0s linear .22s;
+               box-shadow:-4px 0 24px rgba(0,0,0,.09); display:flex; flex-direction:column; }
+    .sidebar.open { transform:translate3d(0,0,0); visibility:visible; transition:transform .22s cubic-bezier(.4,0,.2,1); }
+    .sidebar-header { display:flex; align-items:center; padding:20px 20px 16px; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .sidebar-app-name { display:flex; align-items:center; gap:10px; text-decoration:none; font-size:.95em; font-weight:700; color:var(--ink, var(--navy)); }
+    .sidebar-close-btn { margin-right:auto; background:none; border:none; cursor:pointer; font-size:1.1em; color:#555;
+                         padding:4px 6px; border-radius:6px; transition:background .12s, color .12s; }
+    .sidebar-close-btn:hover { background:var(--teal-light); color:var(--teal); }
+    .sidebar-scroll { flex:1; overflow-y:auto; padding:8px 0 16px; }
+    .nav-item { display:flex; align-items:center; padding:10px 20px; text-decoration:none; color:var(--ink, var(--navy));
+                font-size:.875em; font-weight:500; position:relative; transition:background .1s, color .1s; }
+    .nav-item::before { content:''; position:absolute; right:0; top:22%; height:56%; width:3px; border-radius:3px 0 0 3px;
+                        background:transparent; transition:background .1s; }
+    .nav-item:hover { background:var(--teal-light); color:var(--teal); }
+    .nav-item:hover::before { background:var(--teal); }
+    .nav-sep { height:1px; background:var(--border); margin:8px 16px; }
+    #refreshBtn:disabled { cursor:default; opacity:.5; }
+    #refreshBtn.spin svg { animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(-360deg); } }
 
-    /* ── NAV ────────────────────────────────────────── */
-    .nav {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      height: var(--nav-h);
-      display: flex; align-items: center; padding: 0 5%;
-      background: rgba(255,255,255,.82);
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid rgba(184,228,201,.3);
-      transition: box-shadow var(--ease);
-    }
-    .nav.scrolled { box-shadow: 0 4px 20px rgba(0,0,0,.06); }
-    .nav-logo {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 1.3rem; font-weight: 700; color: var(--dark); text-decoration: none;
-    }
-    .nav-logo-icon {
-      width: 36px; height: 36px;
-      background: linear-gradient(135deg, var(--green-400), var(--green-500));
-      border-radius: var(--r-sm);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.05rem;
-      box-shadow: 0 4px 12px rgba(42,157,92,.3);
-    }
-    .nav-links {
-      display: flex; align-items: center; gap: 2rem;
-      margin-left: auto; margin-right: 2rem; list-style: none;
-    }
-    .nav-links a { color: var(--gray-600); text-decoration: none; font-size: .925rem; font-weight: 500; transition: color var(--ease); }
-    .nav-links a:hover { color: var(--green-500); }
-    .nav-btn {
-      padding: 9px 22px;
-      background: var(--green-500); color: white;
-      border: none; border-radius: 99px;
-      font-size: .9rem; font-weight: 600; cursor: pointer;
-      transition: background var(--ease), transform var(--ease), box-shadow var(--ease);
-      font-family: var(--font); white-space: nowrap;
-    }
-    .nav-btn:hover { background: var(--green-600); transform: translateY(-1px); box-shadow: var(--shadow-g); }
-    .nav-btn.out { background: transparent; color: var(--green-500); border: 2px solid var(--green-200); }
-    .nav-btn.out:hover { background: var(--green-50); box-shadow: none; transform: none; }
-    .ham-btn { display: none; background: none; border: none; cursor: pointer; padding: 8px; color: var(--dark); margin-left: auto; }
+    /* ── Attention strip ── */
+    .attention { max-width:1200px; margin:0 auto; padding:8px 16px 0; }
+    /* one slim bar: a label, then each alert as a compact chip that wraps - no full-width row per alert */
+    .att-box { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; width:fit-content; max-width:100%;
+               background:var(--glass); border-radius:var(--r-card); border:1px solid var(--glass-line); box-shadow:var(--shadow-card);
+               padding:6px 8px 6px 12px;
+               border-right:3px solid var(--amber); }
+    .att-box.has-red { border-right-color:var(--red); }
+    .att-box.ok { border-right-color:var(--teal); padding:6px 12px; }
+    .att-head { font-size:12.5px; font-weight:700; color:var(--muted); margin:0; }
+    .att-list { display:flex; flex-wrap:wrap; gap:6px; min-width:0; }
+    .att-item { display:inline-flex; align-items:center; gap:7px; min-width:0; max-width:100%; padding:4px 10px;
+                background:rgba(255,255,255,.6); border:1px solid var(--border); border-radius:var(--r-badge);
+                color:inherit; text-decoration:none; font-size:12.5px; transition:background .15s; }
+    .att-item:hover { background:rgba(255,255,255,.95); }
+    .att-item .att-title { flex:none; font-weight:600; }
+    .att-item .att-text { min-width:0; max-width:44ch; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .att-item .att-go { flex:none; color:var(--teal); font-size:15px; line-height:1; }
+    .att-ok { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--green); font-weight:600; }
+    .att-ok svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
 
-    /* ── HERO ───────────────────────────────────────── */
-    .hero {
-      min-height: 100svh;
-      display: flex; align-items: center;
-      padding: calc(var(--nav-h) + 4rem) 5% 5rem;
-      position: relative; overflow: hidden;
-      background: linear-gradient(160deg, #fff 0%, #f0faf4 45%, #dcf5e7 100%);
-    }
-    .blob {
-      position: absolute; border-radius: 50%;
-      filter: blur(60px); opacity: .5; pointer-events: none;
-    }
-    .blob-1 { width: 600px; height: 600px; background: radial-gradient(circle, #b8e4c9 0%, transparent 70%); top: -100px; right: -200px; }
-    .blob-2 { width: 400px; height: 400px; background: radial-gradient(circle, #8dd5a9 0%, transparent 70%); bottom: -100px; left: -100px; opacity: .3; }
+    /* ── Edit (layout) mode ── */
+    .edit-banner { display:flex; align-items:center; gap:10px; flex-wrap:wrap; max-width:1200px; margin:8px auto 0;
+                   padding:10px 14px; border-radius:var(--r-card); background:var(--bg); border:1px solid var(--border); color:var(--ink, var(--navy)); font-size:13px;
+                   width:calc(100% - 32px); }
+    .edit-banner .grow { flex:1; min-width:180px; }
+    .edit-banner button { border:1px solid var(--teal); background:var(--white); color:var(--teal); border-radius:8px;
+                          padding:5px 12px; font:inherit; font-size:13px; cursor:pointer; }
+    .edit-banner button.primary { background:var(--teal); color:var(--on-accent, #fff); }
+    .editing .card { cursor:grab; }
+    .editing .card:hover { transform:none; }
+    .editing .card-link { pointer-events:none; }
+    .editing .month-row { display:none; }
+    .card.is-hidden { opacity:.5; border:1px dashed var(--grey); box-shadow:none; }
+    .card.dragging { opacity:.35; }
+    .edit-ctl { display:flex; align-items:center; gap:6px; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border);
+                position:relative; z-index:1; }
+    .edit-ctl .grip { flex:1; color:var(--muted); font-size:12px; user-select:none; }
+    .edit-ctl button { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px;
+                       border:1px solid var(--border); background:var(--white); color:var(--ink, var(--navy)); border-radius:8px;
+                       cursor:pointer; font:inherit; font-size:15px; }
+    .edit-ctl button:hover:not(:disabled) { border-color:var(--teal); color:var(--teal); }
+    .edit-ctl button:disabled { opacity:.5; cursor:default; }
+    .edit-ctl svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+    @media (max-width:480px) { .att-box { width:100%; } .att-item { width:100%; } .att-item .att-text { flex:1; max-width:none; white-space:normal; } }
+    #blk-monthly .card-link { flex:none; }          /* the month strip follows the table instead of sinking to the bottom */
+    .grid-empty { grid-column:1 / -1; text-align:center; color:var(--muted); font-size:14px; padding:40px 10px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px;
+            max-width:1200px; margin:0 auto; padding:14px 16px 20px; }
+    .card { position:relative; display:flex; flex-direction:column; gap:6px; min-width:0; background:var(--white);
+            border-radius:var(--r-card); padding:14px 16px; color:inherit; text-decoration:none;
+            background:var(--glass); border:1px solid var(--glass-line); box-shadow:var(--shadow-card);
+            font-variant-numeric:tabular-nums; contain:layout style;
+            transition:box-shadow .2s, background .2s; }
+    .card:hover { box-shadow:var(--shadow-card-hover); background:rgba(255,255,255,.8); }
+    .card-top { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--muted); }
+    /* an icon is navigation, not decoration: one muted tone, no tile (only on the shortcut tiles) */
+    .ico { flex:none; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; }
+    .ico svg { width:18px; height:18px; stroke:var(--muted); fill:none; stroke-width:1.8;
+               stroke-linecap:round; stroke-linejoin:round; }
+    .card-top .title { flex:1; min-width:0; }
+    .dot { width:8px; height:8px; border-radius:50%; flex:none; }
+    .dot.green{background:var(--green)} .dot.amber{background:var(--amber)} .dot.red{background:var(--red)} .dot.grey{background:var(--grey)}
+    /* hierarchy: the first block is the primary metric (big); every other block is a quiet secondary one */
+    .kpi { font-size:22px; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums;
+           overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px; color:var(--ink, var(--navy)); }
+    .card.primary .kpi { font-size:40px; font-weight:700; line-height:1.1; margin-top:6px; }
+    .card.lead2 .kpi { font-size:30px; font-weight:700; line-height:1.1; margin-top:4px; }
+    .card.lead2 .caption { font-size:13.5px; }
+    /* the month a figure belongs to, large above the number */
+    .period { font-size:20px; font-weight:700; color:var(--ink, var(--navy)); line-height:1.2; margin-top:2px; }
+    .card.primary .card-top { font-size:14px; }
+    .card.primary .caption { font-size:14px; }
+    @media (min-width:560px) { .card.primary { grid-column:span 2; padding:18px 20px; } }
+    .kpi-ltr { direction:ltr; unicode-bidi:isolate; text-align:right; }
+    /* Accounts value: blurred until the eye is pressed (hidden on every load) */
+    .kpi.masked { filter:blur(9px); user-select:none; -webkit-user-select:none; transition:filter .25s ease; }
+    .kpi { transition:filter .25s ease; }
+    .mask-btn { position:relative; z-index:2; flex:none; width:36px; height:30px; display:inline-flex; align-items:center; justify-content:center; border:0;
+                border-radius:var(--r-input); background:var(--teal); color:var(--on-accent, #fff); cursor:pointer;
+                transition:background .15s, transform .1s; }
+    .mask-btn:hover { background:var(--teal-dark); }
+    .mask-btn:active { transform:scale(.94); }
+    .mask-btn:focus-visible { outline:2px solid var(--teal-dark); outline-offset:2px; }
+    .mask-btn svg { width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .caption { font-size:13px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .details { list-style:none; display:flex; flex-direction:column; gap:3px; margin-top:4px; font-size:12.5px;
+               border-top:1px solid var(--border); padding-top:8px; }
+    .details li { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .card .err { font-size:13px; color:var(--muted); margin-top:6px; }
+    .retry { margin-top:8px; padding:4px 10px; border:1px solid var(--border); border-radius:var(--r-input); background:var(--white);
+             color:var(--ink, var(--navy)); font:inherit; font-size:12.5px; cursor:pointer; position:relative; z-index:1; }
+    .retry:hover { background:var(--bg); }
+    /* loading placeholder: grey shapes, no accent colour, no gradient */
+    .skel { height:26px; width:60%; border-radius:var(--r-badge); margin-top:6px; background:var(--c-alt-bg, #e6eaf0);
+            animation:skel-pulse 1.4s ease-in-out infinite; }
+    .card.primary .skel { height:40px; width:50%; }
+    .skel.s2 { height:12px; width:85%; }
+    @keyframes skel-pulse { 50% { opacity:.45; } }
+    /* Boot splash: only the app icon and a thin progress bar with its percentage, until the whole dashboard is loaded */
+    /* Same background and a centred icon as Android's own launch screen (manifest background_color), so the hand-over is seamless */
+    #boot { position:fixed; inset:0; z-index:100; background:#f4f6f9; transition:opacity .35s ease; }
+    #boot .boot-under { position:absolute; top:calc(50% + 29px); left:0; right:0; display:flex; flex-direction:column; align-items:center; gap:10px; }
+    #boot.done { opacity:0; pointer-events:none; }
+    #boot img { position:absolute; left:calc(50% - 24px); top:calc(50% - 39px); width:48px; height:48px; }   /* Android draws its icon ~15px above the centre */
+    #boot .boot-bar { width:140px; height:4px; border-radius:2px; background:var(--c-alt-bg, #e6eaf0); overflow:hidden; direction:ltr; }
+    #boot .boot-fill { height:100%; width:0; background:var(--teal, #1e9d8b); border-radius:2px; transition:width .25s ease; }
+    #boot .boot-what { font-size:12px; color:var(--muted); min-height:1.4em; }
+    #boot .boot-pct { font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; direction:ltr; }
+    /* Reveal: once everything is loaded, each tile slides in after the one before it */
+    @keyframes tile-in { from { opacity:0; translate:0 28px; } }
+    #blocks.enter .card { animation:tile-in .5s cubic-bezier(.2,.7,.2,1) backwards; animation-delay:calc(var(--i, 0) * 60ms); }
+    @media (prefers-reduced-motion: reduce) { #blocks.enter .card { animation:none; } #boot { transition:none; } }
+    /* Month picker: a strip of months, swiped by finger or stepped with the mouse wheel / arrow keys */
+    .month-row { display:flex; flex-direction:column; gap:8px; margin-top:8px; position:relative; z-index:1; }
+    .mstrip { display:flex; gap:6px; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none;
+              overscroll-behavior-x:contain; padding:4px calc(50% - 51px); outline:none; border-radius:var(--r-input);
+              background:rgba(255,255,255,.55); border:1px solid var(--border); }
+    .mstrip::-webkit-scrollbar { display:none; }
+    .mstrip:focus-visible { box-shadow:0 0 0 2px var(--teal); }
+    .mchip { flex:none; width:102px; scroll-snap-align:center; padding:7px 4px; border:1px solid transparent;
+             border-radius:var(--r-input); background:transparent; color:var(--muted); font:inherit; font-size:12.5px;
+             cursor:pointer; white-space:nowrap; transition:background .15s, color .15s; }
+    .mchip:hover { color:var(--ink, var(--navy)); }
+    .mchip.sel { background:var(--teal); border-color:var(--teal); color:var(--on-accent, #fff); font-weight:700; }
+    .mchip.sel:hover { color:var(--on-accent, #fff); }
 
-    .hero-inner {
-      max-width: 1200px; margin: 0 auto; width: 100%;
-      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
-    }
+    /* Housing: the annual rate of each apartment, side by side */
+    .rates { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px; }
+    .rate { display:flex; flex-direction:column; gap:2px; min-width:0; padding:8px 10px; border:1px solid var(--border);
+            border-radius:var(--r-badge); background:rgba(255,255,255,.55); cursor:pointer; position:relative; z-index:1; }
+    .rate:hover { background:rgba(255,255,255,.9); }
+    .rate .rn { font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .rate .rv { font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; direction:ltr; text-align:right; line-height:1.2; }
+    .rate .rv.pos { color:var(--green); } .rate .rv.neg { color:var(--red); }
+    .rate .rt { font-size:10.5px; color:var(--muted); }
+    /* the growth in money, under the rate: a rate alone doesn't show how much it is */
+    .rate .rg { display:flex; justify-content:space-between; align-items:baseline; gap:6px; margin-top:4px; font-size:12px; }
+    .rate .rt + .rg { margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
+    .rate .rgl { color:var(--muted); }
+    .rate .rgv { font-weight:600; font-variant-numeric:tabular-nums; }
+    .rate .rgv.pos { color:var(--green); } .rate .rgv.neg { color:var(--red); }
 
-    .badge {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 6px 16px;
-      background: var(--green-100); border: 1px solid var(--green-200);
-      border-radius: 99px; font-size: .82rem; font-weight: 600; color: var(--green-600);
-      margin-bottom: 1.5rem;
-    }
-    .badge-dot { width: 7px; height: 7px; background: var(--green-500); border-radius: 50%; animation: pulse 2s infinite; }
+    /* Plants to water: their drawn icons (or photos) in a swipeable strip, a ring marking overdue / due today */
+    .pstrip { position:relative; display:flex; align-items:center; gap:4px; margin-top:8px; padding-top:10px; border-top:1px solid var(--border); z-index:1; }
+    /* swipe strip: icons cut by either edge fade out instead of ending abruptly */
+    .ptrack { display:flex; gap:10px; flex:1; min-width:0; overflow-x:auto; scrollbar-width:none; padding:4px 16px;
+              -webkit-mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+                      mask-image:linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); }
+    .ptrack::-webkit-scrollbar { display:none; }
+    .pchip { flex:none; width:62px; display:flex; flex-direction:column; align-items:center; gap:4px;
+             color:inherit; text-decoration:none; }
+    .pchip .pi { width:46px; height:46px; border-radius:13px; overflow:hidden; outline:2px solid var(--amber); outline-offset:2px; }
+    .pchip.late .pi { outline-color:var(--red); }
+    .pchip .pi svg, .pchip .pi img { display:block; width:100%; height:100%; object-fit:cover; }
+    .pchip .pn { max-width:100%; font-size:11.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pchip .ps { font-size:10.5px; color:var(--muted); margin-top:-3px; }
+    .pchip.late .ps { color:var(--red); font-weight:600; }
 
-    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+    /* Pie of the active cards: each card's share of the month's charges */
+    .pie { display:flex; flex-direction:column; align-items:center; gap:12px; margin-top:10px; padding-top:12px; border-top:1px solid var(--border); }
+    .pie svg { display:block; flex:none; width:100%; height:100%; transform:rotate(-90deg); }
+    .pie circle { fill:none; stroke-width:6; transition:stroke-width .15s; }
+    .pie circle:hover { stroke-width:8; }
+    .pie-total { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:700;
+                 font-variant-numeric:tabular-nums; direction:ltr; }
+    .pie-wrap { position:relative; flex:none; width:min(100%, 168px); aspect-ratio:1; }
+    .pie-legend { list-style:none; display:flex; flex-direction:column; gap:4px; min-width:0; width:100%; font-size:12.5px; }
+    .pie-legend li { display:flex; align-items:center; gap:6px; min-width:0; }
+    .pie-legend .sw { flex:none; width:9px; height:9px; border-radius:3px; }
+    .pie-legend .lb { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pie-legend .pc { flex:none; color:var(--muted); font-variant-numeric:tabular-nums; }
 
-    .hero h1 {
-      font-size: clamp(2.4rem, 5vw, 3.9rem);
-      font-weight: 800; line-height: 1.15;
-      color: var(--dark); letter-spacing: -.02em; margin-bottom: 1.25rem;
-    }
-    .hero h1 .hl {
-      background: linear-gradient(135deg, var(--green-500), var(--green-400));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    }
-    .hero p { font-size: 1.1rem; color: var(--gray-600); margin-bottom: 2.5rem; max-width: 480px; line-height: 1.75; }
-
-    .hero-cta { display: flex; gap: 1rem; flex-wrap: wrap; }
-    .btn-p {
-      padding: 14px 32px;
-      background: linear-gradient(135deg, var(--green-500), var(--green-400));
-      color: white; border: none; border-radius: 99px;
-      font-size: 1rem; font-weight: 600; cursor: pointer;
-      box-shadow: 0 6px 20px rgba(42,157,92,.35);
-      transition: all var(--ease); font-family: var(--font);
-      display: flex; align-items: center; gap: 8px;
-    }
-    .btn-p:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(42,157,92,.45); }
-    .btn-s {
-      padding: 14px 32px;
-      background: white; color: var(--dark);
-      border: 1.5px solid var(--gray-300); border-radius: 99px;
-      font-size: 1rem; font-weight: 600; cursor: pointer;
-      transition: all var(--ease); font-family: var(--font);
-      display: flex; align-items: center; gap: 8px;
-    }
-    .btn-s:hover { border-color: var(--green-300); background: var(--green-50); transform: translateY(-2px); }
-
-    /* ── MOCKUP ─────────────────────────────────────── */
-    .hero-visual { position: relative; }
-    .mockup {
-      background: white; border-radius: var(--r-lg); padding: 28px;
-      box-shadow: var(--shadow-lg), 0 0 0 1px rgba(184,228,201,.2);
-      position: relative; overflow: hidden;
-    }
-    .mockup::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
-      background: linear-gradient(90deg, var(--green-400), var(--green-300), var(--green-500));
-    }
-    .mk-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-    .mk-title { font-size: .85rem; font-weight: 600; color: var(--gray-600); }
-    .mk-chip { font-size: .72rem; padding: 3px 10px; background: var(--green-100); color: var(--green-600); border-radius: 99px; font-weight: 600; }
-    .mk-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-    .mk-stat { background: var(--gray-100); border-radius: var(--r-sm); padding: 14px; }
-    .mk-stat-lbl { font-size: .72rem; color: var(--gray-500); font-weight: 500; margin-bottom: 4px; }
-    .mk-stat-val { font-size: 1.25rem; font-weight: 700; color: var(--dark); }
-    .mk-stat-val.g { color: var(--green-500); }
-    .mk-stat-val.r { color: #e53e3e; }
-    .mk-bars { margin-bottom: 16px; }
-    .mk-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-    .mk-bar-lbl { font-size: .72rem; color: var(--gray-500); width: 60px; flex-shrink: 0; }
-    .mk-bar-track { flex: 1; height: 8px; background: var(--gray-100); border-radius: 99px; overflow: hidden; }
-    .mk-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--green-300), var(--green-400)); }
-    .mk-txs { display: flex; flex-direction: column; gap: 10px; }
-    .mk-tx { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--gray-100); border-radius: var(--r-sm); }
-    .mk-tx-ico { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: .85rem; flex-shrink: 0; }
-    .mk-tx-info { flex: 1; }
-    .mk-tx-name { font-size: .78rem; font-weight: 600; color: var(--dark); }
-    .mk-tx-cat { font-size: .68rem; color: var(--gray-500); }
-    .mk-tx-amt { font-size: .82rem; font-weight: 700; }
-
-    .float-card {
-      position: absolute; background: white; border-radius: var(--r-md);
-      padding: 14px 18px; box-shadow: var(--shadow-md);
-    }
-    .float-card-1 { top: -20px; right: -30px; animation: float 4s ease-in-out infinite; }
-    .float-card-2 { bottom: 20px; left: -30px; animation: float 4s ease-in-out 2s infinite; }
-    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-    .fc-inner { display: flex; align-items: center; gap: 10px; }
-    .fc-ico { font-size: 1.4rem; }
-    .fc-lbl { font-size: .72rem; color: var(--gray-500); }
-    .fc-val { font-size: 1rem; font-weight: 700; color: var(--dark); }
-
-    /* ── FEATURES ───────────────────────────────────── */
-    .features { padding: 6rem 5%; background: white; }
-    .features-inner { max-width: 1200px; margin: 0 auto; }
-    .sec-tag {
-      display: inline-block; padding: 5px 14px;
-      background: var(--green-100); color: var(--green-600);
-      font-size: .8rem; font-weight: 600; border-radius: 99px;
-      margin-bottom: 1rem; letter-spacing: .05em; text-transform: uppercase;
-    }
-    .sec-title { font-size: clamp(1.8rem,3vw,2.5rem); font-weight: 800; color: var(--dark); margin-bottom: .75rem; letter-spacing: -.02em; }
-    .sec-sub { font-size: 1.05rem; color: var(--gray-500); margin-bottom: 3rem; max-width: 520px; }
-    .feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 1.5rem; }
-    .feat-card {
-      padding: 28px; border-radius: var(--r-md); border: 1px solid var(--gray-300);
-      background: white; transition: all var(--ease); position: relative; overflow: hidden;
-    }
-    .feat-card::after {
-      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
-      background: linear-gradient(90deg, var(--green-400), var(--green-300));
-      transform: scaleX(0); transition: transform var(--ease); transform-origin: left;
-    }
-    .feat-card:hover { border-color: var(--green-200); box-shadow: 0 8px 30px rgba(42,157,92,.12); transform: translateY(-4px); }
-    .feat-card:hover::after { transform: scaleX(1); }
-    .feat-ico {
-      width: 52px; height: 52px; background: var(--green-50); border-radius: var(--r-sm);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.5rem; margin-bottom: 1.25rem; transition: background var(--ease);
-    }
-    .feat-card:hover .feat-ico { background: var(--green-100); }
-    .feat-card h3 { font-size: 1.05rem; font-weight: 700; color: var(--dark); margin-bottom: .5rem; }
-    .feat-card p { font-size: .9rem; color: var(--gray-500); line-height: 1.65; }
-
-    /* ── MONTHS ─────────────────────────────────────── */
-    .months { padding: 6rem 5%; background: linear-gradient(180deg, var(--green-50) 0%, var(--white) 100%); overflow: hidden; }
-    .months-inner { max-width: 1200px; margin: 0 auto; }
-    .months-head {
-      display: flex; align-items: flex-end; justify-content: space-between;
-      margin-bottom: 2.5rem; gap: 1rem; flex-wrap: wrap;
-    }
-    .nav-arrows { display: flex; gap: 8px; }
-    .arrow-btn {
-      width: 40px; height: 40px; border-radius: 50%;
-      border: 1.5px solid var(--gray-300); background: white;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: all var(--ease); color: var(--dark); font-size: 1.1rem;
-    }
-    .arrow-btn:hover { border-color: var(--green-400); background: var(--green-50); color: var(--green-600); }
-
-    .scroll-wrap { position: relative; }
-    .scroll-wrap::before,
-    .scroll-wrap::after {
-      content: ''; position: absolute; top: 0; bottom: 0; width: 60px; z-index: 2; pointer-events: none;
-    }
-    .scroll-wrap::before { left: 0;  background: linear-gradient(to right, var(--green-50), transparent); }
-    .scroll-wrap::after  { right: 0; background: linear-gradient(to left,  var(--green-50), transparent); }
-
-    .month-strip {
-      display: flex; gap: 14px;
-      overflow-x: auto; scroll-snap-type: x mandatory;
-      scrollbar-width: none; -ms-overflow-style: none;
-      padding: 12px 60px; scroll-padding: 60px;
-    }
-    .month-strip::-webkit-scrollbar { display: none; }
-
-    .month-card {
-      flex-shrink: 0; width: 140px;
-      padding: 20px 16px; border-radius: var(--r-md);
-      background: white; border: 1.5px solid var(--gray-300);
-      cursor: pointer; scroll-snap-align: start;
-      transition: all var(--ease);
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-      position: relative; text-align: center; user-select: none;
-    }
-    .month-card:hover { border-color: var(--green-400); box-shadow: 0 6px 24px rgba(42,157,92,.15); transform: translateY(-4px); }
-    .month-card.current { border-color: var(--green-400); background: linear-gradient(160deg, var(--green-50), white); }
-    .month-card.current .mc-name { color: var(--green-600); }
-    .month-card.future { opacity: .55; }
-    .mc-name { font-size: 1rem; font-weight: 700; color: var(--dark); line-height: 1.2; }
-    .mc-year { font-size: .75rem; color: var(--gray-500); font-weight: 500; }
-    .mc-arrow { font-size: .75rem; color: var(--green-400); margin-top: 8px; transition: transform var(--ease); }
-    .month-card:hover .mc-arrow { transform: translateX(3px); }
-
-    /* lock overlay — only shows when strip is NOT authenticated */
-    .month-lock {
-      position: absolute; inset: 0; border-radius: calc(var(--r-md) - 1.5px);
-      background: rgba(255,255,255,.75); backdrop-filter: blur(4px);
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-      opacity: 0; transition: opacity var(--ease);
-    }
-    .month-strip:not(.auth-ok) .month-card:hover .month-lock { opacity: 1; }
-    .lock-ico { font-size: 1.2rem; }
-    .lock-lbl { font-size: .68rem; font-weight: 600; color: var(--gray-600); }
-
-    .auth-hint {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 20px; margin-top: 1.5rem;
-      background: var(--green-100); border: 1px solid var(--green-200); border-radius: var(--r-sm);
-      font-size: .875rem; color: var(--green-700);
-    }
-    .auth-hint.hidden { display: none; }
-    .auth-hint-btn {
-      margin-left: auto; padding: 7px 18px;
-      background: var(--green-500); color: white;
-      border: none; border-radius: 99px;
-      font-size: .8rem; font-weight: 600; cursor: pointer;
-      font-family: var(--font); transition: background var(--ease); white-space: nowrap;
-    }
-    .auth-hint-btn:hover { background: var(--green-600); }
-
-    /* ── FOOTER ─────────────────────────────────────── */
-    .footer {
-      padding: 3rem 5%; background: var(--dark);
-      color: rgba(255,255,255,.55);
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 1rem; flex-wrap: wrap;
-    }
-    .footer-logo { display: flex; align-items: center; gap: 10px; color: white; text-decoration: none; font-weight: 700; font-size: 1.1rem; }
-    .footer-logo-ico { width: 32px; height: 32px; background: linear-gradient(135deg, var(--green-400), var(--green-500)); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
-    .footer-copy { font-size: .82rem; }
-
-    /* ── MODAL ──────────────────────────────────────── */
-    .backdrop {
-      position: fixed; inset: 0; z-index: 1000;
-      background: rgba(15,25,35,.5); backdrop-filter: blur(8px);
-      display: flex; align-items: center; justify-content: center; padding: 1rem;
-      opacity: 0; pointer-events: none; transition: opacity .3s ease;
-    }
-    .backdrop.open { opacity: 1; pointer-events: all; }
-    .modal {
-      background: white; border-radius: var(--r-lg); padding: 2.5rem;
-      width: 100%; max-width: 400px;
-      box-shadow: var(--shadow-lg);
-      transform: scale(.94) translateY(12px);
-      transition: transform .3s cubic-bezier(.34,1.56,.64,1);
-      position: relative;
-    }
-    .backdrop.open .modal { transform: scale(1) translateY(0); }
-    .modal-x {
-      position: absolute; top: 16px; right: 16px;
-      width: 32px; height: 32px; border-radius: 50%;
-      background: var(--gray-100); border: none; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.2rem; color: var(--gray-500); transition: background var(--ease);
-    }
-    .modal-x:hover { background: var(--gray-300); }
-    .modal-ico {
-      width: 56px; height: 56px;
-      background: linear-gradient(135deg, var(--green-100), var(--green-200));
-      border-radius: var(--r-md);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.75rem; margin-bottom: 1.25rem;
-    }
-    .modal h2 { font-size: 1.4rem; font-weight: 800; color: var(--dark); margin-bottom: .4rem; }
-    .modal .modal-sub { font-size: .875rem; color: var(--gray-500); margin-bottom: 1.75rem; }
-    .form-lbl { display: block; font-size: .83rem; font-weight: 600; color: var(--dark); margin-bottom: 6px; }
-    .form-inp {
-      width: 100%; padding: 12px 16px;
-      border: 1.5px solid var(--gray-300); border-radius: var(--r-sm);
-      font-size: .95rem; font-family: var(--font); color: var(--dark);
-      transition: border-color var(--ease), box-shadow var(--ease); outline: none;
-    }
-    .form-inp:focus { border-color: var(--green-400); box-shadow: 0 0 0 3px rgba(93,191,135,.15); }
-    .form-inp.err { border-color: #e53e3e; }
-    .form-err { font-size: .8rem; color: #e53e3e; margin-top: 6px; display: none; }
-    .form-err.show { display: block; }
-    .form-grp { margin-bottom: 1.25rem; }
-    .form-submit {
-      width: 100%; padding: 13px;
-      background: linear-gradient(135deg, var(--green-500), var(--green-400));
-      color: white; border: none; border-radius: var(--r-sm);
-      font-size: 1rem; font-weight: 600; cursor: pointer;
-      font-family: var(--font);
-      box-shadow: 0 4px 12px rgba(42,157,92,.3);
-      transition: all var(--ease);
-    }
-    .form-submit:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(42,157,92,.4); }
-    .form-submit:active { transform: translateY(0); }
-
-    /* ── TOAST ──────────────────────────────────────── */
-    .toasts { position: fixed; bottom: 24px; right: 24px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
-    .toast {
-      padding: 13px 18px; border-radius: var(--r-sm);
-      font-size: .875rem; font-weight: 500;
-      display: flex; align-items: center; gap: 10px;
-      box-shadow: var(--shadow-md); max-width: 320px;
-      animation: slideIn .3s cubic-bezier(.34,1.56,.64,1) forwards;
-    }
-    .toast.ok  { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
-    .toast.bad { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-    @keyframes slideIn  { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
-    @keyframes slideOut { from{transform:translateX(0);opacity:1}    to{transform:translateX(120%);opacity:0} }
-    .toast.gone { animation: slideOut .3s ease forwards; }
-    @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
-
-    /* ── RESPONSIVE ─────────────────────────────────── */
-    @media (max-width: 900px) {
-      .hero-inner { grid-template-columns: 1fr; gap: 3rem; }
-      .hero-visual { max-width: 480px; margin: 0 auto; }
-      .float-card-1 { top: -15px; right: -10px; }
-      .float-card-2 { display: none; }
-      .nav-links { display: none; }
-      .ham-btn { display: flex; }
-    }
-    @media (max-width: 600px) {
-      .hero { padding-top: calc(var(--nav-h) + 2rem); }
-      .hero-cta { flex-direction: column; }
-      .btn-p, .btn-s { width: 100%; justify-content: center; }
-      .nav-btn { display: none; }
-      .months-head { flex-direction: column; align-items: flex-start; }
-      .footer { flex-direction: column; text-align: center; }
-      .month-card { width: 120px; padding: 16px 12px; }
-      .modal { padding: 1.75rem; }
-      .toasts { bottom: 16px; right: 16px; left: 16px; }
-    }
+    /* Net income + net investments, previous and current month */
+    .flow { display:grid; grid-template-columns:auto 1fr 1fr; align-items:baseline; gap:4px 10px; margin-top:6px;
+            padding-top:8px; border-top:1px solid var(--border); font-size:12.5px; }
+    .flow .fh { font-size:11px; color:var(--muted); text-align:left; white-space:nowrap; }
+    .flow .fl { color:var(--muted); white-space:nowrap; }
+    .flow .fv { font-weight:700; text-align:left; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .flow .fv.pos { color:var(--teal-dark); } .flow .fv.neg { color:var(--red); } .flow .fv.inv { color:var(--invest); }
+    .kpi.kpi-pos { color:var(--green); } .kpi.kpi-neg { color:var(--red); }   /* extra.tone, e.g. Spotify net */
+    .details li.neg { color:var(--red); font-weight:600; }                    /* extra.detail_tones, e.g. debtors */
+    .kpi.kpi-wrap { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere;
+                    font-size:22px; line-height:1.25; }                          /* timeline: full event name */
+    /* Small KPI boxes inside a block (extra.tiles), e.g. bills per type */
+    .mini-kpis { display:grid; grid-template-columns:repeat(auto-fill, minmax(82px, 1fr)); gap:6px; margin-top:10px; }
+    .mini-kpi { --mk:rgba(255,255,255,.6); display:flex; flex-direction:column; gap:2px; min-width:0; padding:6px 9px;
+                background:var(--mk); color:var(--ink, var(--navy)); border:1px solid var(--border); border-radius:var(--r-badge); }
+    /* a tile that carries its own colour (each bill type) is filled with it again */
+    .mini-kpi.coloured { color:#fff; border-color:transparent; text-shadow:0 1px 1px rgba(0,0,0,.18); }
+    .mini-kpi.coloured .mk-name { color:#fff; opacity:.92; }
+    /* an account that has not been updated: yellow with an alert sign (the date is in its tooltip) */
+    .mini-kpi.alert { --mk:#fff3cf; border-color:var(--amber); }
+    .mini-kpi.alert .mk-name { color:#7a5a00; display:flex; align-items:center; gap:4px; }
+    .mini-kpi.alert .mk-name svg { flex:none; width:13px; height:13px; stroke:#b07d00; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+    /* accounts: bigger tiles, and the main bank is the largest one (a full row, a much bigger figure) */
+    .mini-kpis.big { grid-template-columns:repeat(auto-fill, minmax(116px, 1fr)); gap:8px; }
+    .mini-kpis.big .mini-kpi { padding:9px 11px; }
+    .mini-kpis.big .mk-name { font-size:12.5px; }
+    .mini-kpis.big .mk-val { font-size:18px; }
+    .mini-kpis.big .mini-kpi.main { grid-column:1 / -1; padding:12px 14px; }
+    .mini-kpis.big .mini-kpi.main .mk-name { font-size:14px; font-weight:600; }
+    .mini-kpis.big .mini-kpi.main .mk-val { font-size:28px; font-weight:700; }
+    .mini-kpi .mk-sub { font-size:10.5px; color:var(--muted); }
+    .mini-kpi .mk-val { overflow-wrap:anywhere; }
+    .mini-kpi.t-neg .mk-val { color:var(--red); } .mini-kpi.t-pos .mk-val { color:var(--green); }
+    /* wide tiles: one per row, the label (and its detail) on one side and the figure on the other */
+    .mini-kpis.wide { grid-template-columns:1fr; gap:4px; margin-top:8px; }
+    .mini-kpis.wide .mini-kpi { display:grid; grid-template-columns:1fr auto; grid-template-areas:"name val" "sub val";
+                                align-items:center; align-content:center; column-gap:10px; row-gap:0; padding:5px 10px; }
+    .mini-kpis.wide .mk-name { grid-area:name; font-size:12px; }
+    .mini-kpis.wide .mk-sub { grid-area:sub; font-size:10px; line-height:1.2; }
+    .mini-kpis.wide .mk-val { grid-area:val; font-size:14px; font-weight:600; text-align:left; max-width:60vw; }
+    .mk-val.masked { filter:blur(7px); user-select:none; -webkit-user-select:none; transition:filter .25s ease; }
+    .mini-kpi .mk-name { font-size:11.5px; font-weight:500; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mini-kpi .mk-val { font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
+    /* Accounts: 3-month sparkline + change rate */
+    .trend { --tc:var(--teal-dark); } .trend.down { --tc:var(--red); }
+    /* the figure and its line plot on one row; the change since the window start sits under the number */
+    .kpi-row { display:flex; align-items:center; gap:clamp(28px, 9%, 56px); min-width:0; }
+    .kpi-row .kpi { flex:none; max-width:62%; }
+    .kpi-row .spark { flex:1; min-width:64px; padding-inline-end:6px; }   /* room for the end dot */
+    .trend svg { display:block; width:100%; height:44px; overflow:visible; }
+    .trend .tl { fill:none; stroke:var(--tc); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+    .trend .te { fill:var(--tc); }
+    .trend .tr { display:flex; justify-content:flex-start; align-items:baseline; gap:8px; margin-top:2px; font-size:12px; }
+    .trend .tp { font-weight:700; color:var(--tc); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .trend .tw { color:var(--muted); white-space:nowrap; }
+    .card-link { flex:1; display:flex; flex-direction:column; gap:6px; color:inherit; text-decoration:none; }
+    .card-link::after { content:''; position:absolute; inset:0; border-radius:var(--r-card); }
+    /* Blocks without live data: compact shortcut tiles under the KPI grid */
+    .tiles-wrap { max-width:1200px; margin:0 auto; padding:6px 16px 18px; }
+    #blocks { padding-bottom:14px; }
+    .tiles-head { font-size:12px; font-weight:700; color:var(--muted); margin:0 2px 8px; }
+    .tiles { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
+    .card.tile { padding:10px 12px; gap:4px; }
+    .card.tile .ico { width:22px; height:22px; }
+    .card.tile .ico svg { width:16px; height:16px; }
+    .tile-link { flex-direction:row; align-items:center; gap:10px; }
+    .tile-link > div { min-width:0; }
+    .card.tile .card-top { font-size:13px; color:var(--ink, var(--navy)); }
+    .card.tile .desc { font-size:11.5px; color:var(--muted); font-weight:400; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .card.tile .edit-ctl { margin-top:6px; padding-top:6px; }
+    .card.tile .edit-ctl button { width:26px; height:26px; font-size:13px; }
+    @media (prefers-reduced-motion: reduce) { .skel { animation:none; } .card, .kpi { transition:none; } }
   </style>
+<script>try{var _p=localStorage.getItem("bd-palette");if(_p)document.documentElement.setAttribute("data-palette",_p)}catch(e){}</script>
+<link rel="stylesheet" href="/palettes.css">
 </head>
 <body>
 
-<!-- ════════════════════════════════════════════
-     NAVIGATION
-════════════════════════════════════════════ -->
-<nav class="nav" id="nav">
-  <a href="#" class="nav-logo" aria-label="BankDash home">
-    <div class="nav-logo-icon">💰</div>
-    <span>BankDash</span>
-  </a>
-  <ul class="nav-links" aria-label="Main navigation">
-    <li><a href="#features">Features</a></li>
-    <li><a href="#months">Dashboard</a></li>
-  </ul>
-  <button class="nav-btn" id="navAuthBtn" onclick="handleNavAuth()">Sign In</button>
-  <button class="ham-btn" onclick="scrollToMonths()" aria-label="Go to months">
-    <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-      <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/>
-    </svg>
-  </button>
-</nav>
-
-<!-- ════════════════════════════════════════════
-     HERO
-════════════════════════════════════════════ -->
-<section class="hero" aria-label="Hero">
-  <div class="blob blob-1" aria-hidden="true"></div>
-  <div class="blob blob-2" aria-hidden="true"></div>
-
-  <div class="hero-inner">
-    <!-- Left: copy -->
-    <div>
-      <div class="badge" aria-label="Product tag">
-        <div class="badge-dot" aria-hidden="true"></div>
-        Personal Finance Dashboard
-      </div>
-      <h1>Your Money,<br /><span class="hl">Clearly Understood</span></h1>
-      <p>Transform your bank data into beautiful monthly insights. Track every expense, spot trends, and stay on top of your finances — all in one place.</p>
-      <div class="hero-cta">
-        <button class="btn-p" onclick="scrollToMonths()">
-          View Dashboards
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-          </svg>
-        </button>
-        <button class="btn-s" onclick="openModal()">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-          </svg>
-          Sign In
-        </button>
-      </div>
-    </div>
-
-    <!-- Right: mockup -->
-    <div class="hero-visual" aria-hidden="true">
-      <div class="float-card float-card-1">
-        <div class="fc-inner">
-          <div class="fc-ico">📈</div>
-          <div>
-            <div class="fc-lbl">Monthly Savings</div>
-            <div class="fc-val" style="color:var(--green-500)">+₪2,340</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="mockup">
-        <div class="mk-head">
-          <span class="mk-title">June 2026 · Overview</span>
-          <span class="mk-chip">Live</span>
-        </div>
-        <div class="mk-stats">
-          <div class="mk-stat">
-            <div class="mk-stat-lbl">Income</div>
-            <div class="mk-stat-val g">₪18,500</div>
-          </div>
-          <div class="mk-stat">
-            <div class="mk-stat-lbl">Expenses</div>
-            <div class="mk-stat-val r">₪12,340</div>
-          </div>
-        </div>
-        <div class="mk-bars">
-          <div class="mk-bar-row">
-            <span class="mk-bar-lbl">Food</span>
-            <div class="mk-bar-track"><div class="mk-bar-fill" style="width:72%"></div></div>
-          </div>
-          <div class="mk-bar-row">
-            <span class="mk-bar-lbl">Transport</span>
-            <div class="mk-bar-track"><div class="mk-bar-fill" style="width:45%"></div></div>
-          </div>
-          <div class="mk-bar-row">
-            <span class="mk-bar-lbl">Shopping</span>
-            <div class="mk-bar-track"><div class="mk-bar-fill" style="width:60%"></div></div>
-          </div>
-        </div>
-        <div class="mk-txs">
-          <div class="mk-tx">
-            <div class="mk-tx-ico" style="background:#e6f4ea">🛒</div>
-            <div class="mk-tx-info">
-              <div class="mk-tx-name">Shufersal</div>
-              <div class="mk-tx-cat">Groceries</div>
-            </div>
-            <div class="mk-tx-amt" style="color:#e53e3e">-₪340</div>
-          </div>
-          <div class="mk-tx">
-            <div class="mk-tx-ico" style="background:#fffbeb">⛽</div>
-            <div class="mk-tx-info">
-              <div class="mk-tx-name">Paz Station</div>
-              <div class="mk-tx-cat">Transport</div>
-            </div>
-            <div class="mk-tx-amt" style="color:#e53e3e">-₪280</div>
-          </div>
-          <div class="mk-tx">
-            <div class="mk-tx-ico" style="background:#f0faf4">💼</div>
-            <div class="mk-tx-info">
-              <div class="mk-tx-name">Salary</div>
-              <div class="mk-tx-cat">Income</div>
-            </div>
-            <div class="mk-tx-amt" style="color:var(--green-500)">+₪18,500</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="float-card float-card-2">
-        <div class="fc-inner">
-          <div class="fc-ico">🏷️</div>
-          <div>
-            <div class="fc-lbl">Categories</div>
-            <div class="fc-val">12 tracked</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ════════════════════════════════════════════
-     FEATURES
-════════════════════════════════════════════ -->
-<section class="features" id="features" aria-labelledby="feat-heading">
-  <div class="features-inner">
-    <div class="sec-tag">Why BankDash</div>
-    <h2 class="sec-title" id="feat-heading">Everything You Need<br/>to Understand Your Money</h2>
-    <p class="sec-sub">A complete personal finance toolkit, built for clarity and designed for action.</p>
-    <div class="feat-grid">
-      <div class="feat-card">
-        <div class="feat-ico">📊</div>
-        <h3>Monthly Analytics</h3>
-        <p>Deep-dive into any month with interactive charts and breakdowns. See exactly where every shekel goes.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-ico">🏷️</div>
-        <h3>Smart Categories</h3>
-        <p>Transactions are automatically grouped into categories — food, transport, shopping, and more.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-ico">📈</div>
-        <h3>Trend Reports</h3>
-        <p>Compare months at a glance. Spot spending patterns and track how habits evolve over time.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-ico">🔒</div>
-        <h3>Fully Private</h3>
-        <p>Your data never leaves your device. Stored locally in SQLite — no cloud, no subscriptions.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ════════════════════════════════════════════
-     MONTH CAROUSEL
-════════════════════════════════════════════ -->
-<section class="months" id="months" aria-labelledby="months-heading">
-  <div class="months-inner">
-    <div class="months-head">
-      <div>
-        <div class="sec-tag">Monthly View</div>
-        <h2 class="sec-title" id="months-heading">Jump to Any Month</h2>
-        <p class="sec-sub" style="margin-bottom:0">Select a month to open its full dashboard. Sign in required.</p>
-      </div>
-      <div class="nav-arrows" aria-label="Scroll carousel">
-        <button class="arrow-btn" id="arrowL" aria-label="Scroll left">&#8592;</button>
-        <button class="arrow-btn" id="arrowR" aria-label="Scroll right">&#8594;</button>
-      </div>
-    </div>
-
-    <div class="scroll-wrap">
-      <div class="month-strip" id="monthStrip" role="list" aria-label="Month list">
-        <!-- filled by JS -->
-      </div>
-    </div>
-
-    <div class="auth-hint" id="authHint" role="status">
-      <span aria-hidden="true">🔒</span>
-      <span>Sign in to access monthly dashboards</span>
-      <button class="auth-hint-btn" onclick="openModal()">Sign In</button>
-    </div>
-  </div>
-</section>
-
-<!-- ════════════════════════════════════════════
-     FOOTER
-════════════════════════════════════════════ -->
-<footer class="footer" aria-label="Site footer">
-  <a href="#" class="footer-logo" aria-label="BankDash home">
-    <div class="footer-logo-ico" aria-hidden="true">💰</div>
-    <span>BankDash</span>
-  </a>
-  <span class="footer-copy">Built with ♥ for personal finance &nbsp;·&nbsp; © 2026</span>
-</footer>
-
-<!-- ════════════════════════════════════════════
-     AUTH MODAL
-════════════════════════════════════════════ -->
-<div class="backdrop" id="backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title" onclick="backdropClick(event)">
-  <div class="modal">
-    <button class="modal-x" onclick="closeModal()" aria-label="Close">×</button>
-    <div class="modal-ico" aria-hidden="true">🔐</div>
-    <h2 id="modal-title">Welcome Back</h2>
-    <p class="modal-sub">Enter your password to access your personal finance dashboard.</p>
-    <form id="signInForm" onsubmit="handleSignIn(event)" novalidate>
-      <div class="form-grp">
-        <label class="form-lbl" for="pwInput">Password</label>
-        <input class="form-inp" type="password" id="pwInput" placeholder="Enter your password" autocomplete="current-password" />
-        <div class="form-err" id="formErr" role="alert">Incorrect password. Please try again.</div>
-      </div>
-      <button type="submit" class="form-submit">Sign In</button>
-    </form>
+<!-- Boot splash: visible from the first paint; hidden once the dashboard (or the sign-in gate) is ready -->
+<div id="boot" role="status" aria-live="polite" aria-label="טוען">
+  <img src="/favicon.svg" alt="">
+  <div class="boot-under">
+    <div class="boot-bar"><div class="boot-fill" id="bootFill"></div></div>
+    <div class="boot-pct" id="bootPct">0%</div>
+    <div class="boot-what" id="bootWhat"></div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-     TOAST CONTAINER
-════════════════════════════════════════════ -->
-<div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
+<!-- Sign-in gate: the only thing a visitor without a session sees -->
+<div id="gate" hidden>
+  <form class="gate-box" onsubmit="handleSignIn(event)" autocomplete="off">
+    <div class="gate-logo"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+    <h1>BankDash</h1>
+    <p>יש להתחבר כדי להמשיך</p>
+    <input id="pwInput" type="password" placeholder="סיסמה" aria-label="סיסמה" />
+    <div id="formErr" role="alert"></div>
+    <button id="signinBtn" type="submit">כניסה</button>
+  </form>
+</div>
 
-<!-- ════════════════════════════════════════════
-     SCRIPTS
-════════════════════════════════════════════ -->
+<!-- Dashboard: stays hidden (not just covered) until authenticated -->
+<main id="dash" hidden>
+  <header class="dash-head">
+    <div class="head-title">
+      <button id="ham-btn" class="head-btn" type="button" onclick="toggleNav()" aria-label="תפריט" aria-controls="sidebar" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <div>
+        <h1 id="greeting"></h1>
+        <div class="sub" id="today"></div>
+        <div class="sub" id="updatedAll" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="head-actions">
+      <span id="versionBadge"></span>
+      <button id="refreshBtn" class="head-btn" type="button" onclick="refreshAll()" title="רענון נתונים" aria-label="רענון נתונים"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-4M4 13a8 8 0 0 0 14.9 4"/><path d="M5 3v4h4M19 21v-4h-4"/></svg></button>
+      <button id="editBtn" class="head-btn" type="button" onclick="toggleEdit()" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>סידור</span></button>
+      <button id="signOutBtn" class="head-btn" type="button" onclick="signOut()">התנתקות</button>
+    </div>
+  </header>
+  <div class="edit-banner" id="editBanner" hidden>
+    <span class="grow">גררו בלוק כדי לשנות את הסדר (או השתמשו בחיצים) · העין מסתירה או מציגה בלוק</span>
+    <button type="button" onclick="resetLayout()">איפוס</button>
+    <button type="button" class="primary" onclick="toggleEdit()">סיום</button>
+  </div>
+  <section class="attention" id="attention" hidden aria-live="polite"></section>
+  <!-- KPI grids and shortcut-tile strips, drawn in layout order by renderGrid() -->
+  <div id="blocks"></div>
+
+  <!-- Slide-in menu: same links as the other pages' sidebar -->
+  <div class="nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
+  <nav class="sidebar" id="sidebar" aria-label="תפריט">
+    <div class="sidebar-header">
+      <a class="sidebar-app-name" href="/" title="דף הבית"><img src="/favicon.svg" alt="BankDash" style="width:28px;height:28px;border-radius:7px;flex-shrink:0;">ניהול כספים</a>
+      <button class="sidebar-close-btn" type="button" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
+    </div>
+    <div class="sidebar-scroll" data-nav=""></div>
+  </nav>
+  <script src="/plant-icons.js"></script>
+<script src="/nav.js"></script>
+</main>
+
 <script>
-  /* ── CONSTANTS ──────────────────────────────── */
-  const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const SESSION_KEY  = 'bankdash_auth';
-  const SESSION_TTL  = 7 * 24 * 60 * 60 * 1000;
+  /* ── AUTH (same contract as before: server session is the truth) ── */
+  const SESSION_KEY = 'bankdash_auth';
+  const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
+  let _pendingUrl = null;
+  let _fadeTimer = null;   /* gate fade-out; cleared by showGate() so a quick sign-out keeps the gate */
+  let _gen = 0;            /* bumped on every gate/dashboard switch so late block responses are dropped */
 
-  /* ── AUTH ───────────────────────────────────── */
-  function isSignedIn() {
+  function setLocalFlag(on) {
     try {
-      const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
-      if (!s || s.token !== 'ok' || Date.now() > s.exp) {
-        localStorage.removeItem(SESSION_KEY);
-        return false;
-      }
-      return true;
-    } catch { return false; }
+      if (on) localStorage.setItem(SESSION_KEY, JSON.stringify({ token: 'ok', exp: Date.now() + SESSION_TTL }));
+      else localStorage.removeItem(SESSION_KEY);
+    } catch (e) {}
   }
 
+  async function serverAuthenticated() {
+    try {
+      const r = await fetch('/api/auth/check', { headers: { 'Accept': 'application/json' } });
+      return r.ok && (await r.json()).authenticated === true;
+    } catch (e) { return false; }
+  }
+
+  let signInLocked = false;
   async function trySignIn(pw) {
     try {
       const r = await fetch('/api/auth/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }),
       });
-      const data = await r.json();
-      if (data.ok) {
-        localStorage.setItem(SESSION_KEY, JSON.stringify({ token: 'ok', exp: Date.now() + SESSION_TTL }));
-        return true;
-      }
-    } catch {}
+      signInLocked = r.status === 429;     /* too many wrong passwords: the server refuses for a few minutes */
+      if ((await r.json()).ok) { setLocalFlag(true); return true; }
+    } catch (e) {}
     return false;
   }
 
-  function signOut() {
-    localStorage.removeItem(SESSION_KEY);
-    syncAuthUI();
-    toast('Signed out', 'ok');
+  function showGate() {
+    clearTimeout(_fadeTimer);
+    _fadeTimer = null;
+    _gen++;
+    resetDashState();
+    document.getElementById('dash').hidden = true;
+    hideBoot();
+    clearLandingCache();
+    document.getElementById('blocks').innerHTML = '';
+    document.getElementById('attention').hidden = true;
+    document.getElementById('attention').innerHTML = '';
+    const gate = document.getElementById('gate');
+    gate.hidden = false;
+    gate.classList.remove('fade');
+    setTimeout(() => document.getElementById('pwInput').focus(), 50);
   }
 
-  /* ── NAV SCROLL EFFECT ──────────────────────── */
-  window.addEventListener('scroll', () => {
-    document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
-  });
-  function scrollToMonths() {
-    document.getElementById('months').scrollIntoView({ behavior: 'smooth' });
+  function enterDashboard() {
+    if (_pendingUrl && _pendingUrl !== '/') { window.location.href = location.origin + _pendingUrl; return; }
+    const gate = document.getElementById('gate');
+    gate.classList.add('fade');
+    clearTimeout(_fadeTimer);
+    _fadeTimer = setTimeout(() => { _fadeTimer = null; gate.hidden = true; }, 300);
+    _gen++;
+    resetDashState();
+    showBoot();
+    renderDashboard();
   }
 
-  /* ── MODAL ──────────────────────────────────── */
-  let _pendingUrl = null;
-
-  function openModal(url = null) {
-    _pendingUrl = url;
-    document.getElementById('backdrop').classList.add('open');
-    setTimeout(() => document.getElementById('pwInput').focus(), 320);
-  }
-  function closeModal() {
-    document.getElementById('backdrop').classList.remove('open');
-    document.getElementById('pwInput').value = '';
-    setFormError(false);
-  }
-  function backdropClick(e) {
-    if (e.target === document.getElementById('backdrop')) closeModal();
-  }
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-  /* ── SIGN IN ────────────────────────────────── */
   async function handleSignIn(e) {
     e.preventDefault();
-    const inp = document.getElementById('pwInput');
-    const pw  = inp.value;
+    const inp = document.getElementById('pwInput'), err = document.getElementById('formErr');
+    const btn = document.getElementById('signinBtn');
+    inp.classList.remove('err'); err.textContent = '';
+    if (!inp.value) { inp.classList.add('err'); err.textContent = 'נא להזין סיסמה'; return; }
+    if (window.btnState) window.btnState(btn, 'loading', { text: 'בודק…' }); else btn.disabled = true;
+    const ok = await trySignIn(inp.value);
+    if (window.btnState) window.btnState(btn, ok ? 'default' : 'error', { text: signInLocked ? 'יותר מדי ניסיונות' : 'סיסמה שגויה' }); else btn.disabled = false;
+    if (ok) { inp.value = ''; enterDashboard(); return; }
+    inp.value = '';
+    void inp.offsetWidth;
+    inp.classList.add('err');
+    err.textContent = signInLocked ? 'יותר מדי ניסיונות — נסו שוב בעוד כמה דקות' : 'סיסמה שגויה, נסו שוב';
+  }
 
-    if (!pw) { inp.classList.add('err'); setFormError(true, 'Please enter your password.'); return; }
+  /* ── Slide-in menu ── */
+  function setNav(open) {
+    document.getElementById('sidebar').classList.toggle('open', open);
+    document.getElementById('nav-overlay').classList.toggle('open', open);
+    document.getElementById('ham-btn').setAttribute('aria-expanded', String(open));
+  }
+  function openNav() { setNav(true); }
+  function closeNav() { setNav(false); }
+  function toggleNav() { setNav(!document.getElementById('sidebar').classList.contains('open')); }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNav(); });
 
-    const btn = e.target.querySelector('button[type=submit]') || document.getElementById('signinBtn');
-    if (btn) btn.disabled = true;
+  function signOut() {
+    closeNav();
+    setLocalFlag(false);
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    _pendingUrl = null;
+    showGate();
+  }
 
-    const ok = await trySignIn(pw);
-    if (btn) btn.disabled = false;
+  /* ── BLOCKS (menu order: live blocks first, description-only tiles last) ── */
+  const ICONS = {
+    monthly:   '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
+    accounts:  '<path d="M3 10l9-6 9 6"/><path d="M5 10v9M19 10v9M9 10v9M15 10v9M3 21h18"/>',
+    cards:     '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
+    housing:   '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+    timeline:  '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    organizer: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+    bills:     '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/>',
+    categories:'<path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>',
+    search:    '<circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/>',
+    spotify:   '<circle cx="12" cy="12" r="9"/><path d="M7.5 10c3-1 6.5-.7 9 .8M8 13.2c2.4-.7 5-.5 7 .7M8.5 16c1.9-.5 3.8-.3 5.4.5"/>',
+    plants:    '<path d="M12 21v-8"/><path d="M12 13c0-4 3-7 7-7 0 4-3 7-7 7z"/><path d="M12 15c0-3-2.5-5.5-6-5.5 0 3 2.5 5.5 6 5.5z"/><path d="M8 21h8"/>',
+    recurring: '<path d="M20 11a8 8 0 0 0-14.9-4M4 13a8 8 0 0 0 14.9 4"/><path d="M5 3v4h4M19 21v-4h-4"/>',
+    tagger:    '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/>',
+    files:     '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/>',
+  };
+  const BLOCKS = [
+    { id: 'accounts',  title: 'חשבונות',          live: true, href: '/accounts' },
+    { id: 'monthly',   title: 'ניתוח חודשי',      live: true, href: '/monthly' },
+    { id: 'cards',     title: 'כרטיסים',          live: true, href: '/card-analysis' },
+    { id: 'housing',   title: 'דיור',             live: true, href: '/housing', prop: 'shabazi' },
+    { id: 'timeline',  title: 'ציר זמן',          live: true, href: '/timeline' },
+    { id: 'organizer', title: 'ארגונית',          desc: 'סידור ותיוג קבצים',          href: '/organizer' },
+    { id: 'bills',     title: 'מעקב חשבונות',     live: true, href: '/bills' },
+    { id: 'categories',title: 'ניתוח קטגוריאלי',  desc: 'הוצאות לפי קטגוריה',         href: '/categories' },
+    { id: 'search',    title: 'חיפוש',            desc: 'חיפוש בכל העסקאות',          href: '/search' },
+    { id: 'spotify',   title: 'Spotify',          live: true, href: '/spotify' },
+    { id: 'plants',    title: 'מעקב עציצים',      live: true, href: '/plants' },
+    { id: 'recurring', title: 'חיובים חוזרים',    live: true, href: '/recurring' },
+    { id: 'tagger',    title: 'תייגן',            live: true, href: '/tagger' },
+    { id: 'files',     title: 'קבצים',            live: true, href: '/files' },
+  ];
 
-    if (ok) {
-      closeModal();
-      syncAuthUI();
-      toast('✓ Signed in successfully', 'ok');
-      const dest = _pendingUrl;
-      _pendingUrl = null;
-      if (dest && dest !== '/' && dest !== window.location.pathname) {
-        setTimeout(() => { window.location.href = dest; }, 500);
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  /* Escape text and isolate numeric tokens as LTR so signs/units stay on the right side in RTL text.
+     A leading sign belongs to the number only when it doesn't follow a word/Hebrew character
+     ("א-5" is a dash, "רווח -5" is a minus). Checked in code, not with a regex lookbehind:
+     Safari < 16.4 can't parse lookbehind, which would kill this whole script (no sign-in gate). */
+  const NUM_RE = /[-+]?\d+(?:[.,]\d+)*[%₪]?/g;
+  const WORD_CHAR_RE = /[\wא-ת]/;
+  function rich(s) {
+    s = String(s == null ? '' : s);
+    let out = '', last = 0, m;
+    NUM_RE.lastIndex = 0;
+    while ((m = NUM_RE.exec(s)) !== null) {
+      let start = m.index;
+      if ((m[0][0] === '-' || m[0][0] === '+') && start > 0 && WORD_CHAR_RE.test(s[start - 1])) start++;
+      out += esc(s.slice(last, start)) + '<span dir="ltr">' + esc(s.slice(start, m.index + m[0].length)) + '</span>';
+      last = m.index + m[0].length;
+    }
+    return out + esc(s.slice(last));
+  }
+  function icon(id) { return '<span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[id] + '</svg></span>'; }
+  const DOT_TEXT = { green: 'תקין', amber: 'דורש תשומת לב', red: 'דורש טיפול', grey: 'לא זמין' };
+
+  const BLOCK_BY_ID = Object.fromEntries(BLOCKS.map(b => [b.id, b]));
+  /* Default order: live blocks first (menu order), description-only tiles last. */
+  const DEFAULT_ORDER = BLOCKS.filter(b => b.live).concat(BLOCKS.filter(b => !b.live)).map(b => b.id);
+  const LAYOUT_KEY = 'landing_layout_v1';
+  const EYE = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+  const EYE_OFF = '<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 3.9M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>';
+
+  let accountsShown = false;   /* the accounts value is hidden (blurred) by default, on every load */
+
+  let layout = loadLayout();
+  let editing = false;
+  let refreshing = false;
+  let blockData = {};      /* id -> {d, at} on success (at = ms timestamp the server computed it) | {err: true} */
+  let dragId = null;
+
+  /** Saved order/hidden blocks for this browser; unknown ids dropped, new blocks appended in default order. */
+  function loadLayout() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch (e) {}
+    const known = id => Object.prototype.hasOwnProperty.call(BLOCK_BY_ID, id);
+    const order = (saved && Array.isArray(saved.order) ? saved.order : []).filter((id, i, a) => known(id) && a.indexOf(id) === i);
+    DEFAULT_ORDER.forEach(id => { if (!order.includes(id)) order.push(id); });
+    /* accounts (right-most, the main figure) and the monthly analysis (next to it) always lead, whatever order was saved */
+    ['monthly', 'accounts'].forEach(id => { order.splice(order.indexOf(id), 1); order.unshift(id); });
+    const hidden = (saved && Array.isArray(saved.hidden) ? saved.hidden : []).filter(known);
+    return { order, hidden };
+  }
+  /** Persist the layout; storage failures (private mode, blocked storage) just keep it for this visit. */
+  function saveLayout() {
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch (e) {}
+  }
+  function isHidden(id) { return layout.hidden.includes(id); }
+  /** Blocks shown outside edit mode, in layout order. */
+  function visibleIds() { return layout.order.filter(id => !isHidden(id)); }
+  function visibleLiveIds() { return visibleIds().filter(id => BLOCK_BY_ID[id].live); }
+  /** The live blocks or the shortcut tiles of `ids`, keeping their order. */
+  function ofGroup(ids, live) { return ids.filter(id => !!BLOCK_BY_ID[id].live === live); }
+
+  /** Forget per-session dashboard state (on sign-in and sign-out). */
+  function resetDashState() {
+    blockData = {};
+    accountsShown = false;
+    pickedMonth = null;
+    editing = false;
+    refreshing = false;
+    dragId = null;
+    syncHeadButtons();
+  }
+
+  function renderDashboard() {
+    // The heading names the period it describes (no greeting: it carried no information).
+    const now = new Date();
+    document.getElementById('greeting').textContent =
+      'סקירה · ' + now.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
+    document.getElementById('today').textContent =
+      now.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    fetch('/api/version').then(r => r.json()).then(d => {
+      if (d.version) document.getElementById('versionBadge').textContent = 'v' + d.version;
+    }).catch(() => {});
+    const gen = _gen, ids = visibleLiveIds(), cache = readLandingCache();
+    ids.forEach(id => { if (cache[id]) blockData[id] = cache[id]; });   /* back on the dashboard: reuse what this tab already loaded */
+    renderGrid();
+    const missing = ids.filter(id => !blockData[id]);
+    if (!missing.length) { revealDashboard(false); return; }
+    setBootProgress(0);
+    let done = 0;
+    const pending = missing.slice();
+    const say = () => { document.getElementById('bootWhat').textContent = pending.length ? (LOADING_TEXT[pending[0]] || BLOCK_BY_ID[pending[0]].title) + '…' : ''; };
+    say();   /* names the first block still loading; moves on as each one arrives */
+    Promise.all(missing.map(id => loadBlock(id, false).then(() => {
+      pending.splice(pending.indexOf(id), 1);
+      setBootProgress(++done / missing.length);
+      say();
+    }))).then(() => {
+      if (gen === _gen) revealDashboard(true);
+    });
+  }
+
+  /* ── Boot splash + load cache ── */
+  /** What the splash says while each block is loading. */
+  const LOADING_TEXT = {
+    accounts: 'טוען יתרות חשבונות', monthly: 'מחשב את הניתוח החודשי', cards: 'טוען חיובי כרטיסי אשראי',
+    housing: 'טוען נתוני דיור ותשואות', timeline: 'טוען אירועי ציר הזמן', bills: 'בודק חשבונות לתשלום',
+    spotify: 'בודק מנוי Spotify', plants: 'בודק אילו עציצים צריכים השקיה', recurring: 'מזהה חיובים חוזרים',
+    tagger: 'בודק עסקאות שממתינות לתיוג', files: 'בודק אם הקבצים מעודכנים',
+  };
+  const CACHE_KEY = 'landing_blocks_v1';
+  /** Blocks loaded earlier in this tab ({id: {d, at}}); empty when storage is unavailable. */
+  function readLandingCache() {
+    try { return JSON.parse(sessionStorage.getItem(CACHE_KEY) || '{}') || {}; } catch (e) { return {}; }
+  }
+  /** Save every successfully loaded block so a return to the dashboard needs no requests. */
+  function writeLandingCache() {
+    const out = {};
+    Object.keys(blockData).forEach(id => { if (blockData[id] && blockData[id].d) out[id] = blockData[id]; });
+    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(out)); } catch (e) {}
+  }
+  function clearLandingCache() { try { sessionStorage.removeItem(CACHE_KEY); } catch (e) {} }
+  function showBoot() {
+    const b = document.getElementById('boot');
+    b.hidden = false; b.classList.remove('done');
+    setBootProgress(0);
+  }
+  function hideBoot() {
+    const b = document.getElementById('boot');
+    b.classList.add('done');
+    setTimeout(() => { if (b.classList.contains('done')) b.hidden = true; }, 400);
+  }
+  /** Progress bar and percentage; `frac` is 0..1. */
+  function setBootProgress(frac) {
+    const pct = Math.round(Math.max(0, Math.min(1, frac)) * 100);
+    document.getElementById('bootFill').style.width = pct + '%';
+    document.getElementById('bootPct').textContent = pct + '%';
+  }
+  /** Show the whole dashboard at once; with `animate` every tile slides in one after another. */
+  function revealDashboard(animate) {
+    const host = document.getElementById('blocks');
+    host.classList.remove('enter');
+    if (animate) {
+      host.querySelectorAll('.card').forEach((c, i) => c.style.setProperty('--i', Math.min(i, 12)));
+      host.classList.add('enter');
+      setTimeout(() => host.classList.remove('enter'), 1500);   /* later repaints (edit mode, refresh) must not replay it */
+    }
+    document.getElementById('dash').hidden = false;
+    setBootProgress(1);
+    hideBoot();
+  }
+
+  /** The eye button of the accounts value: crossed eye = hidden (blurred), open eye = shown. */
+  function maskBtnHtml() {
+    return '<button type="button" class="mask-btn" data-mask aria-pressed="' + accountsShown + '" aria-label="' +
+      (accountsShown ? 'הסתר' : 'הצג') + ' את סכום החשבונות"><svg viewBox="0 0 24 24" aria-hidden="true">' +
+      (accountsShown ? EYE : EYE_OFF) + '</svg></button>';
+  }
+
+  /** Blur or reveal the accounts value (and keep its title / aria-label from leaking it while hidden). */
+  function applyAccountsMask() {
+    const card = document.getElementById('blk-accounts');
+    if (!card) return;
+    const k = card.querySelector('.kpi');
+    if (k) {
+      k.classList.toggle('masked', !accountsShown);
+      k.title = accountsShown ? (k.dataset.val || '') : '';
+      k.setAttribute('aria-label', accountsShown ? (k.dataset.val || '') : 'מוסתר');
+    }
+    card.querySelectorAll('.mini-kpi .mk-val').forEach(v => v.classList.toggle('masked', !accountsShown));   /* the accounts' balances hide with the total */
+    const b = card.querySelector('[data-mask]');
+    if (b) {
+      b.setAttribute('aria-pressed', String(accountsShown));
+      b.setAttribute('aria-label', (accountsShown ? 'הסתר' : 'הצג') + ' את סכום החשבונות');
+      b.querySelector('svg').innerHTML = accountsShown ? EYE : EYE_OFF;
+    }
+  }
+
+  /** Card markup for one block; edit controls are added only in edit mode. */
+  function cardHtml(id, pos, count, primaryId, lead2Id) {
+    const b = BLOCK_BY_ID[id], hid = isHidden(id);
+    const cls = 'card' + (b.live ? '' : ' tile') + (hid ? ' is-hidden' : '') + (id === primaryId ? ' primary' : '') + (id === lead2Id ? ' lead2' : '');
+    const link = b.live
+      ? '<a class="card-link" href="' + b.href + '"' + (b.prop ? ' data-hs-prop="' + b.prop + '"' : '') + '>' +
+          '<div class="card-top"><span class="title">' + esc(b.title) + '</span>' + (id === 'accounts' ? maskBtnHtml() : '') + '<span class="dot" role="img" aria-label="' + DOT_TEXT.grey + '"></span></div>' +
+          '<div class="body"><div class="skel"></div><div class="skel s2"></div></div>' +
+        '</a>'
+      : '<a class="card-link tile-link" href="' + b.href + '">' + icon(id) +
+          '<div><div class="card-top"><span class="title">' + esc(b.title) + '</span></div>' +
+          '<div class="desc">' + esc(b.desc) + '</div></div>' +
+        '</a>';
+    const ctl = !editing ? '' :
+      '<div class="edit-ctl">' +
+        '<span class="grip" aria-hidden="true">⋮⋮ ' + (hid ? 'מוסתר' : '') + '</span>' +
+        '<button type="button" data-act="prev" aria-label="הזז את ' + esc(b.title) + ' קדימה"' + (pos === 0 ? ' disabled' : '') + '>→</button>' +
+        '<button type="button" data-act="next" aria-label="הזז את ' + esc(b.title) + ' אחורה"' + (pos === count - 1 ? ' disabled' : '') + '>←</button>' +
+        '<button type="button" data-act="toggle" aria-pressed="' + hid + '" aria-label="' + (hid ? 'הצג' : 'הסתר') + ' את ' + esc(b.title) + '">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true">' + (hid ? EYE_OFF : EYE) + '</svg></button>' +
+      '</div>';
+    return '<div class="' + cls + '" id="blk-' + id + '" data-id="' + id + '"' + (editing ? ' draggable="true"' : '') + '>' + link + ctl + '</div>';
+  }
+
+  /** Consecutive blocks of the same kind, in order: [{live, ids}]. */
+  function runsOf(ids) {
+    const runs = [];
+    ids.forEach(id => {
+      const live = !!BLOCK_BY_ID[id].live, last = runs[runs.length - 1];
+      if (last && last.live === live) last.ids.push(id); else runs.push({ live, ids: [id] });
+    });
+    return runs;
+  }
+
+  /** Rebuild the dashboard from the layout and paint every block from blockData (no requests).
+      Blocks follow the one layout order: each run of KPI blocks is a grid and each run of shortcut
+      tiles a "קיצורי דרך" strip, so tiles can sit at the top, between KPI blocks or at the bottom.
+      Arrows and drag move a block anywhere in that order. */
+  function renderGrid() {
+    const ids = editing ? layout.order : visibleIds();
+    const host = document.getElementById('blocks');
+    // the first visible KPI block, in the user's own order, is the primary metric
+    // accounts is the main figure and the monthly analysis the second; without them, the first live blocks
+    const lead = ['accounts', 'monthly'].filter(id => ids.includes(id) && !isHidden(id));
+    const rest = ids.filter(id => BLOCK_BY_ID[id].live && !isHidden(id) && !lead.includes(id));
+    const primaryId = lead[0] || rest[0], lead2Id = lead[0] ? (lead[1] || rest[0]) : rest[1];
+    const cards = list => list.map(id => cardHtml(id, ids.indexOf(id), ids.length, primaryId, lead2Id)).join('');
+    host.classList.toggle('editing', editing);
+    host.innerHTML = runsOf(ids).map(r => r.live
+      ? '<section class="grid">' + cards(r.ids) + '</section>'
+      : '<section class="tiles-wrap"><div class="tiles-head">קיצורי דרך</div><div class="tiles">' + cards(r.ids) + '</div></section>'
+    ).join('') || '<section class="grid"><div class="grid-empty">כל הבלוקים מוסתרים — לחצו "סידור" כדי להציג אותם</div></section>';
+    ofGroup(ids, true).forEach(paintBlock);
+    renderAttention();
+  }
+
+  /** Fetch one block (fresh=true skips the server cache) and repaint it and the attention strip. */
+  async function loadBlock(id, fresh) {
+    const gen = _gen;
+    let d = null;
+    try {
+      const r = await fetch('/api/landing/' + id + (fresh ? '?fresh=1' : ''), { headers: { 'Accept': 'application/json' } });
+      if (r.status === 401) { if (gen === _gen) { setLocalFlag(false); showGate(); } return; }
+      d = await r.json();
+    } catch (e) {}
+    if (gen !== _gen) return;   /* signed out (or back in) meanwhile */
+    blockData[id] = d && d.ok ? { d, at: Date.now() - (Number(d.age) || 0) * 1000 } : { err: true };
+    paintBlock(id);
+    renderAttention();
+    writeLandingCache();
+  }
+
+  /** Paint a live block's body, dot, month picker and freshness label from blockData. */
+  function paintBlock(id) {
+    const el = document.getElementById('blk-' + id);
+    if (!el) return;
+    const body = el.querySelector('.body'), dot = el.querySelector('.dot'), entry = blockData[id];
+    const oldRow = el.querySelector('.month-row');
+    if (oldRow) oldRow.remove();
+    const oldAlerts = el.querySelector('.month-alerts');
+    if (oldAlerts) oldAlerts.remove();
+    const oldStrip = el.querySelector('.pstrip');
+    if (oldStrip) oldStrip.remove();
+    if (!entry) {
+      if (isHidden(id)) { body.innerHTML = '<div class="err">מוסתר — הנתונים ייטענו כשיוצג</div>'; dot.className = 'dot'; }
+      return;   /* otherwise the skeleton stays until the request returns */
+    }
+    if (entry.err) {
+      body.innerHTML = '<div class="err">לא זמין כרגע</div><button type="button" class="retry" data-retry>נסו שוב</button>';
+      dot.className = 'dot grey';
+      dot.setAttribute('aria-label', DOT_TEXT.grey);
+      el.dataset.dot = 'grey';
+      paintAge(el, id);
+      return;
+    }
+    const d = entry.d;
+    dot.className = d.dot ? 'dot ' + d.dot : 'dot';
+    dot.setAttribute('aria-label', DOT_TEXT[d.dot] || DOT_TEXT.grey);
+    el.dataset.dot = d.dot || '';
+    const ltr = /^[-+\d]/.test(d.kpi || '') ? ' kpi-ltr' : '';
+    const tone = { pos: ' kpi-pos', neg: ' kpi-neg' }[(d.extra || {}).tone] || '';
+    const wrap = id === 'timeline' ? ' kpi-wrap' : '';   /* event names show in full */
+    const dTones = (d.extra || {}).detail_tones || [];
+    const tp = id === 'accounts' ? trendParts((d.extra || {}).trend) : null;
+    /* the month is already the big heading: never repeat it in the caption */
+    let caption = d.caption || '';
+    if (id === 'monthly' && (d.extra || {}).period) caption = caption.split(d.extra.period).join('').replace(/^[\s·\-—]+|[\s·\-—]+$/g, '') || caption;
+    if (id === 'housing' && (d.extra || {}).rates) {
+      body.innerHTML = ratesHtml(d.extra.rates);
+      paintAge(el, id);
+      return;
+    }
+    body.innerHTML =
+      (id === 'monthly' && (d.extra || {}).period ? '<div class="period">' + esc(d.extra.period) + '</div>' : '') +
+      (tp ? '<div class="kpi-row">' : '') +
+      '<div class="kpi' + ltr + tone + wrap + '" data-val="' + esc(d.kpi) + '" title="' + esc(d.kpi) + '">' + esc(d.kpi) + '</div>' +
+      (tp ? tp.chart + '</div>' : '') +
+      '<div class="caption" title="' + esc(caption) + '">' + rich(caption) + '</div>' +
+      (tp ? tp.delta : '') +
+      ((d.details || []).length && id !== 'monthly' && !(id === 'cards' && (d.extra || {}).pie) && !((id === 'spotify' || id === 'recurring') && (d.extra || {}).tiles) ? '<ul class="details">' + d.details.map((x, i) =>
+        '<li' + (dTones[i] === 'neg' ? ' class="neg"' : '') + ' title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '') +
+      (id === 'monthly' ? flowHtml((d.extra || {}).flow) : '') +
+      (id === 'cards' ? pieHtml((d.extra || {}).pie) : '') +
+      miniKpisHtml((d.extra || {}).tiles, id === 'accounts', id === 'spotify' || id === 'recurring');
+    const kpiEl = body.querySelector('.kpi.kpi-ltr');
+    if (kpiEl && window.rollNumber) rollNumber(kpiEl, d.kpi, 'landing:' + id);   /* digits roll to the new figure */
+    if (id === 'accounts') applyAccountsMask();
+    if (id === 'plants' && (d.extra || {}).plants) {
+      const tail = el.querySelector('.edit-ctl');
+      el.insertBefore(plantStrip(d.extra.plants, BLOCK_BY_ID.plants.href), tail);
+    }
+    if (id === 'monthly') {
+      renderMonthPicker(el, d.extra || {});
+      /* below the month strip: the alerts, then (very last) the update time */
+      const tail = el.querySelector('.edit-ctl');
+      if ((d.details || []).length) {
+        const ul = document.createElement('ul');
+        ul.className = 'details month-alerts';
+        ul.innerHTML = d.details.map(x => '<li title="' + esc(x) + '">' + rich(x) + '</li>').join('');
+        el.insertBefore(ul, tail);
       }
-    } else {
-      inp.value = '';
-      inp.classList.add('err');
-      setFormError(true, 'Incorrect password. Please try again.');
-      inp.style.animation = 'none';
-      void inp.offsetWidth;
-      inp.style.animation = 'shake .4s ease';
     }
+    paintAge(el, id);
   }
 
-  function setFormError(show, msg = '') {
-    const el = document.getElementById('formErr');
-    const inp = document.getElementById('pwInput');
-    el.textContent = msg;
-    el.classList.toggle('show', show);
-    if (!show) inp.classList.remove('err');
+  /** Shekel amount like the server's money(): thousands separators, sign in front, no decimals. */
+  function shekels(v) {
+    const n = Math.round(Number(v) || 0);
+    return (n < 0 ? '-' : '') + Math.abs(n).toLocaleString('en-US') + '₪';
   }
 
-  /* ── NAV AUTH BUTTON ────────────────────────── */
-  function handleNavAuth() {
-    isSignedIn() ? signOut() : openModal();
+  /** Housing block: both apartments' annual rate (extra.rates [{name, prop, value, tone, note}]). A tap opens that apartment. */
+  function ratesHtml(rates) {
+    return '<div class="rates">' + rates.map(r =>
+      '<div class="rate" data-prop="' + esc(r.prop) + '"><span class="rn">' + esc(r.name) + '</span>' +
+      '<span class="rv ' + (r.tone || '') + '" dir="ltr">' + esc(r.value) + '</span>' +
+      '<span class="rt">תשואה שנתית' + (r.note ? ' · ' + esc(r.note) : '') + '</span>' +
+      (r.growth ? '<span class="rg"><span class="rgl">עליית ערך</span><span class="rgv ' + (r.growth_tone || '') + '" dir="ltr">' + esc(r.growth) + '</span></span>' : '') +
+      (r.month_net ? '<span class="rg"><span class="rgl">נטו החודש</span><span class="rgv ' + (r.month_net_tone || '') + '" dir="ltr">' + esc(r.month_net) + '</span></span>' : '') +
+      (r.profit ? '<span class="rg"><span class="rgl">רווח נקי</span><span class="rgv ' + (r.profit_tone || '') + '" dir="ltr">' + esc(r.profit) + '</span></span>' : '') +
+      '</div>').join('') + '</div>';
   }
 
-  /* ── SYNC UI STATE ──────────────────────────── */
-  function syncAuthUI() {
-    const ok     = isSignedIn();
-    const btn    = document.getElementById('navAuthBtn');
-    const hint   = document.getElementById('authHint');
-    const strip  = document.getElementById('monthStrip');
-
-    btn.textContent = ok ? 'Sign Out' : 'Sign In';
-    btn.classList.toggle('out', ok);
-    hint.classList.toggle('hidden', ok);
-    strip.classList.toggle('auth-ok', ok);
+  /** Icon of a plant: its photo when it has one, else the drawn glyph of its type (shared /plant-icons.js). */
+  function plantBadgeHtml(p) {
+    if (p.photo && p.id > 0) return '<img src="/api/plants/' + p.id + '/photo?v=' + encodeURIComponent(p.photo) + '" alt="" loading="lazy">';
+    const g = (window.GLYPHS && (GLYPHS[p.plant_type] || GLYPHS.sprout)) || '';
+    return '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="1" y="1" width="46" height="46" rx="13" fill="' + esc(p.color || '#1e9d8b') + '"/>' +
+      '<g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + g + '</g></svg>';
+  }
+  /** Strip of the plants to water (extra.plants, overdue first): a swipeable row, its cut edges faded. */
+  function plantStrip(plants, href) {
+    const wrap = document.createElement('div');
+    wrap.className = 'pstrip';
+    wrap.innerHTML =
+      '<div class="ptrack" role="list" aria-label="עציצים להשקיה">' + plants.map(p =>
+        '<a class="pchip' + (p.status === 'overdue' ? ' late' : '') + '" role="listitem" href="' + esc(href) + '" title="' + esc(p.name) + '">' +
+          '<span class="pi">' + plantBadgeHtml(p) + '</span><span class="pn">' + esc(p.name) + '</span>' +
+          '<span class="ps">' + (p.status === 'overdue' ? 'באיחור' : 'היום') + '</span></a>').join('') + '</div>' +
+      '';
+    /* mouse wheel rolls the strip sideways, eased frame by frame so it glides instead of jumping a notch at a time;
+       at either end the page scrolls as usual (RTL: forward = negative scrollLeft, 0 at the start) */
+    const track = wrap.querySelector('.ptrack');
+    let target = null, raf = 0;
+    const step = () => {
+      const diff = target - track.scrollLeft;
+      if (Math.abs(diff) < 0.5) { track.scrollLeft = target; raf = 0; return; }
+      track.scrollLeft += diff * 0.16;
+      raf = requestAnimationFrame(step);
+    };
+    track.addEventListener('wheel', e => {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;           /* a horizontal gesture is already native */
+      const max = track.scrollWidth - track.clientWidth;
+      if (max <= 1) return;
+      const base = raf ? target : track.scrollLeft;
+      const next = Math.max(-max, Math.min(0, base - e.deltaY));
+      if (next === base) return;                                      /* already at that end: let the page scroll */
+      e.preventDefault();
+      target = next;
+      if (!raf) raf = requestAnimationFrame(step);
+    }, { passive: false });
+    return wrap;
   }
 
-  /* ── MONTH CAROUSEL ─────────────────────────── */
-  function buildCarousel() {
-    const strip = document.getElementById('monthStrip');
-    const now   = new Date();
-    const cy    = now.getFullYear();
-    const cm    = now.getMonth(); // 0-indexed
+  const PIE_COLORS = ['#1e9d8b', '#1e2a4a', '#e8a317', '#4f9fd6', '#d9665a', '#7a8a9a'];
+  /** Donut of the active cards (extra.pie: {total, slices:[{label, value}]}): one slice per card, the month's total in the
+   *  middle, and a legend with each card's share. Circumference is 100 so a slice's length is its percentage. */
+  function pieHtml(p) {
+    if (!p || !p.slices || !p.slices.length) return '';
+    const sum = p.slices.reduce((a, x) => a + x.value, 0) || 1;
+    let at = 0;
+    const rows = p.slices.map((x, i) => {
+      const pc = x.value / sum * 100, color = PIE_COLORS[i % PIE_COLORS.length], start = at;
+      at += pc;
+      return { x, pc, color, start };
+    });
+    const arcs = rows.map(r => '<circle cx="21" cy="21" r="15.9155" stroke="' + r.color + '" stroke-dasharray="' +
+      Math.max(0, r.pc - 0.6).toFixed(2) + ' ' + (100 - Math.max(0, r.pc - 0.6)).toFixed(2) + '" stroke-dashoffset="' + (-r.start).toFixed(2) +
+      '"><title>' + esc(r.x.label) + '</title></circle>').join('');
+    const words = 'פילוח חיובי כרטיסים: ' + rows.map(r => r.x.label + ' (' + Math.round(r.pc) + '%)').join(', ');
+    return '<div class="pie"><div class="pie-wrap">' +
+      '<svg viewBox="0 0 42 42" role="img" aria-label="' + esc(words) + '">' + arcs + '</svg>' +
+      '<span class="pie-total">' + esc(p.total) + '</span></div>' +
+      '<ul class="pie-legend">' + rows.map(r => '<li><span class="sw" style="background:' + r.color + '"></span>' +
+        '<span class="lb" title="' + esc(r.x.label) + '">' + rich(r.x.label) + '</span><span class="pc">' + Math.round(r.pc) + '%</span></li>').join('') +
+      '</ul></div>';
+  }
 
-    strip.innerHTML = '';
+  /** Small KPI boxes inside a block (extra.tiles: [{name, value, color}]), e.g. one per bill. */
+  function miniKpisHtml(tiles, big, wide) {
+    if (!tiles || !tiles.length) return '';
+    return '<div class="mini-kpis' + (big ? ' big' : '') + (wide ? ' wide' : '') + '">' + tiles.map(t =>
+      '<div class="mini-kpi' + (t.color ? ' coloured' : '') + (t.alert ? ' alert' : '') + (t.main ? ' main' : '') + (t.tone ? ' t-' + t.tone : '') + '"' + (t.color ? ' style="--mk:' + esc(t.color) + '"' : '') + '>' +
+        '<span class="mk-name" title="' + esc(t.name + (t.since ? ' · לא עודכן מאז ' + t.since : '')) + '">' +
+          (t.alert ? '<svg viewBox="0 0 24 24" role="img" aria-label="לא עודכן"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18.5h.01"/></svg>' : '') +
+          esc(t.name) + '</span>' +
+        '<span class="mk-val" dir="' + (/^[-+−\d₪]/.test(t.value) ? 'ltr' : 'auto') + '" title="' + esc(t.value) + '">' + esc(t.value) + '</span>' +
+        (t.sub ? '<span class="mk-sub">' + esc(t.sub) + '</span>' : '') +
+      '</div>').join('') + '</div>';
+  }
 
-    // 24 months back → 6 months ahead
-    for (let d = -24; d <= 6; d++) {
-      const dt  = new Date(cy, cm + d, 1);
-      const y   = dt.getFullYear();
-      const m   = dt.getMonth(); // 0-indexed
-      const mm  = String(m + 1).padStart(2, '0');
-      const url = `/general/${y}_${mm}`;
+  /** Accounts value over the last 3 months (extra.trend) as a sparkline — x by date, y fitted
+   *  to the range — plus the change since the window start in % and ₪. Green up, red down. */
+  function trendParts(t) {
+    if (!t || !t.points || t.points.length < 2) return null;
+    const W = 200, H = 38, P = 3;
+    const xs = t.points.map(p => Date.parse(p[0])), ys = t.points.map(p => p[1]);
+    const x0 = xs[0], xr = (xs[xs.length - 1] - x0) || 1;
+    const lo = Math.min(...ys), yr = (Math.max(...ys) - lo) || 1;
+    const pt = t.points.map((p, i) => [((xs[i] - x0) / xr) * W, P + (1 - (ys[i] - lo) / yr) * (H - 2 * P)]);
+    const line = pt.map(q => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' ');
+    const end = pt[pt.length - 1];
+    const down = t.change < 0;
+    const pctTxt = t.change_pct == null ? '' : (t.change_pct >= 0 ? '+' : '') + t.change_pct.toFixed(1) + '% ';
+    const amtTxt = (t.change >= 0 ? '+' : '') + shekels(t.change);
+    const since = new Date(t.points[0][0]).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+    const words = 'מגמת החשבונות מ-' + since + ': ' + (down ? 'ירידה' : 'עלייה') + (t.change_pct == null ? '' : ' של ' + Math.abs(t.change_pct).toFixed(1) + '%');
+    const cls = 'trend' + (down ? ' down' : '');
+    return { chart: '<div class="' + cls + ' spark" title="' + esc(t.points[0][0] + ' → ' + t.points[t.points.length - 1][0]) + '">' +
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" dir="ltr" role="img" aria-label="' + esc(words) + '">' +
+        '<polyline class="tl" points="' + line + '" vector-effect="non-scaling-stroke"/>' +
+        '<circle class="te" cx="' + end[0].toFixed(1) + '" cy="' + end[1].toFixed(1) + '" r="2.5"/>' +
+      '</svg></div>',
+      delta: '<div class="' + cls + '"><div class="tr"><span class="tp" dir="ltr">' + (down ? '▼ ' : '▲ ') + pctTxt + '(' + amtTxt + ')</span>' +
+        '<span class="tw">מול ' + esc(since) + '</span></div></div>' };
+  }
 
-      const isCurrent = y === cy && m === cm;
-      const isFuture  = y > cy || (y === cy && m > cm);
+  /** Net income and net investments of the previous and the current month (extra.flow), as a small table. */
+  function flowHtml(flow) {
+    if (!flow || !flow.length) return '';
+    const cell = (v, cls) => '<span class="fv ' + cls + '" dir="ltr">' + shekels(v) + '</span>';
+    return '<div class="flow">' +
+      '<span></span>' + flow.map((f, i) => '<span class="fh" title="' + esc(f.label) + (i === flow.length - 1 ? ' — עד היום' : '') + '">' +
+        esc(f.label.split(' ')[0]) + '</span>').join('') +
+      '<span class="fl">הכנסות</span>' + flow.map(f => cell(f.income, 'pos')).join('') +
+      '<span class="fl">הוצאות</span>' + flow.map(f => cell(f.spend, 'neg')).join('') +
+      '<span class="fl">נטו</span>' + flow.map(f => cell(f.net, f.net >= 0 ? 'pos' : 'neg')).join('') +
+      '<span class="fl">השקעות נטו</span>' + flow.map(f => cell(f.invest, 'inv')).join('') +
+    '</div>';
+  }
 
-      const card = document.createElement('div');
-      card.className = ['month-card', isCurrent ? 'current' : '', isFuture ? 'future' : ''].filter(Boolean).join(' ');
-      card.setAttribute('role', 'listitem');
-      card.setAttribute('aria-label', `${MONTHS_SHORT[m]} ${y}`);
-      card.innerHTML = `
-        <div class="mc-name">${MONTHS_SHORT[m]}</div>
-        <div class="mc-year">${y}</div>
-        <div class="mc-arrow">→</div>
-        <div class="month-lock" aria-hidden="true">
-          <span class="lock-ico">🔒</span>
-          <span class="lock-lbl">Sign in</span>
-        </div>`;
+  let pickedMonth = null;   /* month chosen in the picker; survives repaints (refresh) */
 
-      card.addEventListener('click', () => {
-        if (isSignedIn()) window.location.href = url;
-        else openModal(url);
+  /** Month picker: a strip of months (newest first) instead of a dropdown, plus an "open" button. */
+  function renderMonthPicker(el, extra) {
+    const months = extra.months || [];
+    el.querySelector('.card-link').href = extra.current ? '/general/' + extra.current : '/monthly';
+    if (!months.length) return;
+    const row = document.createElement('div');
+    row.className = 'month-row';
+    row.innerHTML =
+      '<div class="mstrip" role="listbox" tabindex="0" aria-label="בחירת חודש — החלקה, גלגלת העכבר או חיצים">' +
+        months.map((m, i) => '<button type="button" class="mchip" role="option" tabindex="-1" data-i="' + i + '">' +
+          esc(m.label) + '</button>').join('') +
+      '</div>';
+    // The picker lives beside the card link (not inside it), so it can never follow the link.
+    el.querySelector('.card-link').after(row);
+    const want = months.findIndex(m => m.key === (pickedMonth || extra.current));
+    wireMonthStrip(row, months, want < 0 ? 0 : want);
+  }
+
+  /** Swipe (native scroll + snap), mouse wheel and arrow keys step through the months; the centred
+      month is the selected one. A tap on any month opens it. */
+  function wireMonthStrip(row, months, start) {
+    const strip = row.querySelector('.mstrip'), chips = Array.from(strip.children), link = row.parentElement.querySelector('.card-link');
+    let sel = -1, settleTimer = null, lastWheel = 0;
+    const go = () => { window.location.href = '/general/' + months[sel].key; };
+
+    function mark(i) {
+      if (i === sel) return;
+      sel = i;
+      pickedMonth = months[i].key;
+      chips.forEach((c, k) => { c.classList.toggle('sel', k === i); c.setAttribute('aria-selected', String(k === i)); });
+      if (link) link.href = '/general/' + months[i].key;   /* the card itself opens the month the strip shows */
+    }
+    /** Select month i and scroll it to the middle (relative scrollBy works the same in RTL everywhere). */
+    function select(i, smooth) {
+      i = Math.max(0, Math.min(months.length - 1, i));
+      mark(i);
+      const c = chips[i].getBoundingClientRect(), s = strip.getBoundingClientRect();
+      strip.scrollBy({ left: (c.left + c.width / 2) - (s.left + s.width / 2), behavior: smooth ? 'smooth' : 'auto' });
+    }
+    function nearestToCentre() {
+      const s = strip.getBoundingClientRect(), mid = s.left + s.width / 2;
+      let best = 0, dist = Infinity;
+      chips.forEach((c, k) => {
+        const r = c.getBoundingClientRect(), d = Math.abs(r.left + r.width / 2 - mid);
+        if (d < dist) { dist = d; best = k; }
       });
-
-      strip.appendChild(card);
+      return best;
     }
 
-    // Centre the current month card
-    const current = strip.querySelector('.month-card.current');
-    if (current) setTimeout(() => current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }), 150);
+    strip.addEventListener('scroll', () => {          /* finger swipe / trackpad: pick what settles in the middle */
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => mark(nearestToCentre()), 90);
+    }, { passive: true });
+    strip.addEventListener('wheel', e => {             /* vertical wheel steps one month; horizontal scroll stays native */
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      const next = sel + (e.deltaY > 0 ? 1 : -1);
+      if (next < 0 || next >= months.length) return;   /* at either end the page scrolls as usual */
+      e.preventDefault();
+      const now = Date.now();
+      if (now - lastWheel < 140) return;               /* one step per notch, even on fast trackpads */
+      lastWheel = now;
+      select(next, true);
+    }, { passive: false });
+    strip.addEventListener('keydown', e => {           /* RTL: left = older, right = newer */
+      if (e.key === 'ArrowLeft') { e.preventDefault(); select(sel + 1, true); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); select(sel - 1, true); }
+      else if (e.key === 'Home') { e.preventDefault(); select(0, true); }
+      else if (e.key === 'End') { e.preventDefault(); select(months.length - 1, true); }
+      else if (e.key === 'Enter') { e.preventDefault(); go(); }
+    });
+    strip.addEventListener('click', e => {
+      const chip = e.target.closest('.mchip');
+      if (!chip) return;
+      const i = Number(chip.dataset.i);
+      select(i, false);                                /* a tap on a month opens it - no separate button */
+      go();
+    });
+    select(start, false);
   }
 
-  /* ── ARROW BUTTONS ──────────────────────────── */
-  document.getElementById('arrowL').addEventListener('click', () => {
-    document.getElementById('monthStrip').scrollBy({ left: -300, behavior: 'smooth' });
-  });
-  document.getElementById('arrowR').addEventListener('click', () => {
-    document.getElementById('monthStrip').scrollBy({ left: 300, behavior: 'smooth' });
-  });
+  /* ── Freshness ── */
+  /** "עודכן ..." text for a timestamp, relative to now. */
+  function ageText(at) {
+    const min = Math.floor(Math.max(0, Date.now() - at) / 60000);
+    if (min < 1) return 'עודכן עכשיו';
+    if (min === 1) return 'עודכן לפני דקה';
+    if (min < 60) return 'עודכן לפני ' + min + ' דק׳';
+    const h = Math.floor(min / 60);
+    return h === 1 ? 'עודכן לפני שעה' : 'עודכן לפני ' + h + ' שעות';
+  }
+  /** One freshness line for the whole page, in the header: how old the oldest of the shown blocks' data is. */
+  function paintGlobalAge() {
+    const out = document.getElementById('updatedAll');
+    if (!out) return;
+    const ats = visibleLiveIds().map(id => blockData[id] && blockData[id].at).filter(Boolean);
+    out.textContent = refreshing ? 'מרענן…' : ats.length ? ageText(Math.min(...ats)) : '';
+  }
+  function paintAge() { paintGlobalAge(); }   /* the cards no longer carry their own "updated" line */
+  /** Repaint the freshness label of every listed block that is on screen. */
+  function paintAges(ids) {
+    ids.forEach(id => { const el = document.getElementById('blk-' + id); if (el) paintAge(el, id); });
+  }
+  setInterval(() => {
+    if (!document.getElementById('dash').hidden) paintAges(Object.keys(blockData));
+  }, 30000);
 
-  /* ── TOAST ──────────────────────────────────── */
-  function toast(msg, type = 'ok') {
-    const el = document.createElement('div');
-    el.className = `toast ${type}`;
-    el.textContent = msg;
-    document.getElementById('toasts').appendChild(el);
-    setTimeout(() => {
-      el.classList.add('gone');
-      setTimeout(() => el.remove(), 320);
-    }, 3000);
+  /** Reload every visible live block, skipping the server's 5-minute cache. */
+  async function refreshAll() {
+    if (refreshing || editing) return;
+    const gen = _gen, ids = visibleLiveIds();
+    refreshing = true;
+    syncHeadButtons();
+    paintAges(ids);
+    await Promise.all(ids.map(id => loadBlock(id, true)));
+    if (gen !== _gen) return;
+    refreshing = false;
+    syncHeadButtons();
+    paintAges(ids);
   }
 
-  /* ── INIT ───────────────────────────────────── */
-  buildCarousel();
-  syncAuthUI();
+  /* ── Attention strip ── */
+  /** Amber/red blocks (visible ones only) as one line each; "all fine" once every visible block answered. */
+  function renderAttention() {
+    const box = document.getElementById('attention');
+    const ids = visibleLiveIds();
+    if (editing || !ids.length) { box.hidden = true; return; }
+    const rank = { red: 0, amber: 1 };
+    const items = ids.map(id => ({ id, e: blockData[id] }))
+      .filter(x => x.e && x.e.d && x.e.d.attention && rank[x.e.d.dot] !== undefined)
+      .sort((a, b) => rank[a.e.d.dot] - rank[b.e.d.dot] || ids.indexOf(a.id) - ids.indexOf(b.id));
+    if (items.length) {
+      const red = items.some(x => x.e.d.dot === 'red');
+      box.innerHTML = '<div class="att-box' + (red ? ' has-red' : '') + '"><div class="att-head">דורש תשומת לב</div><div class="att-list">' +
+        items.map(({ id, e }) => {
+          const b = BLOCK_BY_ID[id];
+          const href = id === 'monthly' && e.d.extra && e.d.extra.current ? '/general/' + e.d.extra.current : b.href;
+          return '<a class="att-item" href="' + esc(href) + '"><span class="dot ' + e.d.dot + '"></span>' +
+            '<span class="att-title">' + esc(b.title) + '</span><span class="att-text" title="' + esc(e.d.attention) + '">' +
+            rich(e.d.attention) + '</span><span class="att-go" aria-hidden="true">‹</span></a>';
+        }).join('') + '</div></div>';
+      box.hidden = false;
+    } else if (ids.every(id => blockData[id])) {
+      box.innerHTML = '<div class="att-box ok"><div class="att-ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>' +
+        'הכל תקין — אין דברים שדורשים טיפול</div></div>';
+      box.hidden = false;
+    } else {
+      box.hidden = true;   /* still loading */
+    }
+  }
+
+  /* ── Layout editing ── */
+  function syncHeadButtons() {
+    const editBtn = document.getElementById('editBtn'), refreshBtn = document.getElementById('refreshBtn');
+    editBtn.classList.toggle('on', editing);
+    editBtn.setAttribute('aria-pressed', String(editing));
+    editBtn.querySelector('span').textContent = editing ? 'סיום' : 'סידור';
+    document.getElementById('editBanner').hidden = !editing;
+    refreshBtn.disabled = editing;                 /* while refreshing the spinning icon is the loading state and refreshAll ignores a second click */
+    refreshBtn.setAttribute('aria-busy', String(refreshing));
+    refreshBtn.setAttribute('data-reason', 'לא בזמן סידור הכרטיסים');
+    refreshBtn.classList.toggle('spin', refreshing);
+  }
+
+  function toggleEdit() {
+    if (refreshing) return;
+    editing = !editing;
+    syncHeadButtons();
+    renderGrid();
+    if (!editing) visibleLiveIds().filter(id => !blockData[id]).forEach(id => loadBlock(id, false));
+  }
+
+  function resetLayout() {
+    layout = { order: DEFAULT_ORDER.slice(), hidden: [] };
+    saveLayout();
+    renderGrid();
+    if (!editing) return;
+    layout.order.filter(id => BLOCK_BY_ID[id].live && !blockData[id]).forEach(id => loadBlock(id, false));
+  }
+
+  /** Move block `id` by `delta` places in the whole layout order (a tile can pass KPI blocks), keeping keyboard focus. */
+  function moveBlock(id, delta, act) {
+    const order = layout.order.slice(), i = order.indexOf(id), j = i + delta;
+    if (i < 0 || j < 0 || j >= order.length) return;
+    order.splice(i, 1);
+    order.splice(j, 0, id);
+    layout.order = order;
+    saveLayout();
+    renderGrid();
+    const btn = document.querySelector('#blk-' + id + ' [data-act="' + act + '"]');
+    if (btn && !btn.disabled) btn.focus();
+  }
+
+  function toggleHidden(id) {
+    layout.hidden = isHidden(id) ? layout.hidden.filter(x => x !== id) : layout.hidden.concat(id);
+    saveLayout();
+    renderGrid();
+    const btn = document.querySelector('#blk-' + id + ' [data-act="toggle"]');
+    if (btn) btn.focus();
+    if (!isHidden(id) && BLOCK_BY_ID[id].live && !blockData[id]) loadBlock(id, false);
+  }
+
+  (function wireGrid() {
+    const grid = document.getElementById('blocks');   /* KPI grid + shortcut tiles */
+    grid.addEventListener('click', e => {
+      /* the eye on the accounts value: toggle blur, never follow the card's link */
+      if (e.target.closest('[data-mask]')) { e.preventDefault(); accountsShown = !accountsShown; applyAccountsMask(); return; }
+      /* "try again" inside a block that failed to load: reload that block only */
+      const retry = e.target.closest('[data-retry]');
+      if (retry) { e.preventDefault(); const card = retry.closest('.card'); if (card) loadBlock(card.dataset.id, true); return; }
+      /* the housing page remembers its apartment: open the one this block shows */
+      const hs = e.target.closest('a[data-hs-prop]');
+      const rate = e.target.closest('.rate[data-prop]');   /* a tapped rate opens its own apartment */
+      if (hs && !editing) { try { localStorage.setItem('hs_prop', rate ? rate.dataset.prop : hs.dataset.hsProp); } catch (_) {} }
+      const btn = e.target.closest('[data-act]');
+      if (!editing) return;
+      if (!btn) { if (e.target.closest('a')) e.preventDefault(); return; }
+      const id = btn.closest('.card').dataset.id, act = btn.dataset.act;
+      if (act === 'prev') moveBlock(id, -1, act);
+      else if (act === 'next') moveBlock(id, 1, act);
+      else if (act === 'toggle') toggleHidden(id);
+    });
+    grid.addEventListener('dragstart', e => {
+      const card = editing && e.target.closest && e.target.closest('.card');
+      if (!card) { e.preventDefault(); return; }
+      dragId = card.dataset.id;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', dragId); } catch (err) {}   /* Firefox needs data to start a drag */
+    });
+    grid.addEventListener('dragover', e => {
+      if (!dragId) return;
+      e.preventDefault();
+      const over = e.target.closest('.card'), dragged = document.getElementById('blk-' + dragId);
+      if (!over || !dragged || over === dragged) return;
+      const cards = Array.from(grid.querySelectorAll('.card'));   /* any block, across grids and tile strips */
+      // Moving forward lands after the target, moving back lands before it — works across rows and sections.
+      if (cards.indexOf(dragged) < cards.indexOf(over)) over.after(dragged); else over.before(dragged);
+    });
+    grid.addEventListener('drop', e => { if (dragId) e.preventDefault(); });
+    grid.addEventListener('dragend', () => {
+      if (!dragId) return;
+      dragId = null;
+      layout.order = Array.from(grid.querySelectorAll('.card')).map(c => c.dataset.id);
+      saveLayout();
+      renderGrid();   /* regroup into grids / tile strips and refresh the arrows' disabled state */
+    });
+  })();
+
+  /* Back/forward cache: a page restored after sign-out (elsewhere or in this tab) must not show the dashboard. */
+  window.addEventListener('pageshow', async e => {
+    if (!e.persisted) return;
+    if (!(await serverAuthenticated())) { setLocalFlag(false); _pendingUrl = null; showGate(); }
+  });
+
+  /* ── INIT ── */
+  (async function init() {
+    const params = new URLSearchParams(location.search);
+    const rawNext = params.get('next') || '';
+    try {   /* same-origin paths only: parse like the browser does, then verify the origin */
+      const u = new URL(rawNext, location.origin);
+      if (rawNext.startsWith('/') && u.origin === location.origin && !u.pathname.startsWith('//'))
+        _pendingUrl = u.pathname + u.search + u.hash;
+    } catch (e) {}
+    if (params.has('auth') || params.has('next')) history.replaceState(null, '', location.pathname);
+
+    if (await serverAuthenticated()) { setLocalFlag(true); enterDashboard(); }
+    else { setLocalFlag(false); showGate(); }
+  })();
 </script>
 </body>
 </html>

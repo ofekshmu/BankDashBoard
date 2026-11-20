@@ -18,7 +18,7 @@
             --r-card:22px; --r-input:14px; --r-badge:10px; --shadow-overlay:0 12px 32px rgba(10,50,70,.22); }
     * { box-sizing:border-box; margin:0; padding:0; }
     html, body { background:var(--bg); color:var(--ink, var(--navy)); font-family:'Heebo',system-ui,sans-serif; }
-    body { min-height:100vh; overflow-x:hidden; background:var(--page-bg, var(--canvas)); background-attachment:fixed; }
+    body { min-height:100vh; overflow-x:hidden; background:var(--page-bg, var(--canvas)); }
     [hidden] { display:none !important; }
 
     /* ── Gate ── */
@@ -97,7 +97,7 @@
     /* one slim bar: a label, then each alert as a compact chip that wraps - no full-width row per alert */
     .att-box { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; width:fit-content; max-width:100%;
                background:var(--glass); border-radius:var(--r-card); border:1px solid var(--glass-line); box-shadow:var(--shadow-card);
-               -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); padding:6px 8px 6px 12px;
+               padding:6px 8px 6px 12px;
                border-right:3px solid var(--amber); }
     .att-box.has-red { border-right-color:var(--red); }
     .att-box.ok { border-right-color:var(--teal); padding:6px 12px; }
@@ -144,7 +144,7 @@
     .card { position:relative; display:flex; flex-direction:column; gap:6px; min-width:0; background:var(--white);
             border-radius:var(--r-card); padding:14px 16px; color:inherit; text-decoration:none;
             background:var(--glass); border:1px solid var(--glass-line); box-shadow:var(--shadow-card);
-            -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); font-variant-numeric:tabular-nums;
+            font-variant-numeric:tabular-nums; contain:layout style;
             transition:box-shadow .2s, background .2s; }
     .card:hover { box-shadow:var(--shadow-card-hover); background:rgba(255,255,255,.8); }
     .card-top { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--muted); }

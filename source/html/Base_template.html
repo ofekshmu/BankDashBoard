@@ -8320,7 +8320,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
     // Owner / info / inactive, per account (AccountSettings, sent with the data)
     var settings = data.account_settings || {};
-    var inactiveNames = Object.keys(rich).filter(function(n) { return _acctIsInactive(settings, n, rich[n].value); });
+    var inactiveNames = Object.keys(rich).filter(function(n) { return _acctIsInactive(settings, n, rich[n].value, rich[n].lastDateStr); });
 
     // Build KPI cards
     var html = '<div class="acct-cards-wrap">';
@@ -8449,9 +8449,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   var _ACCT_OWNER_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>';
 
   /** Inactive only while the balance is 0 — money in an "inactive" account shows it as active. */
-  function _acctIsInactive(settings, name, value) {
-    return !!(settings[name] && settings[name].inactive) && Math.abs(value || 0) < 0.005;
+  function _acctIsInactive(settings, name, value, lastDateStr) {
+    if (Math.abs(value || 0) >= 0.005) return false;
+    if (settings[name] && settings[name].inactive) return true;
+    // A closed account nobody marked: balance 0 and no update for _INACTIVE_AFTER_DAYS counts as inactive by itself.
+    if (_ACCT_NO_SETTINGS[name] || !lastDateStr) return false;
+    return (Date.now() - new Date(lastDateStr)) / 86400000 > _INACTIVE_AFTER_DAYS;
   }
+  var _INACTIVE_AFTER_DAYS = 90;
 
   /** Card footer, pinned to the bottom of the card: when open, the info text, edit form and
    *  "mark inactive" button, then the arrow (always last). None for _ACCT_NO_SETTINGS accounts. */
@@ -8577,7 +8582,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       if (!pts.length) return;
       var sortedPts = pts.slice().sort(function(a,b){return a[0]<b[0]?-1:(a[0]>b[0]?1:0);});
       var lastPt = sortedPts[sortedPts.length - 1];
-      var inactive = _acctIsInactive(acctSettings, name, lastPt[1]);
+      var inactive = _acctIsInactive(acctSettings, name, lastPt[1], lastPt[0]);
       if (inactive) {
         // An inactive account stays on the chart up to its last relevant date: its last non-zero balance and the
         // closing point after it (the drop to 0). Nothing after that.

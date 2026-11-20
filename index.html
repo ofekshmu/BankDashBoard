@@ -628,7 +628,7 @@
     setBootProgress(0);
     let done = 0;
     const pending = missing.slice();
-    const say = () => { document.getElementById('bootWhat').textContent = pending.length ? BLOCK_BY_ID[pending[0]].title + '…' : ''; };
+    const say = () => { document.getElementById('bootWhat').textContent = pending.length ? (LOADING_TEXT[pending[0]] || BLOCK_BY_ID[pending[0]].title) + '…' : ''; };
     say();   /* names the first block still loading; moves on as each one arrives */
     Promise.all(missing.map(id => loadBlock(id, false).then(() => {
       pending.splice(pending.indexOf(id), 1);
@@ -640,6 +640,13 @@
   }
 
   /* ── Boot splash + load cache ── */
+  /** What the splash says while each block is loading. */
+  const LOADING_TEXT = {
+    accounts: 'טוען יתרות חשבונות', monthly: 'מחשב את הניתוח החודשי', cards: 'טוען חיובי כרטיסי אשראי',
+    housing: 'טוען נתוני דיור ותשואות', timeline: 'טוען אירועי ציר הזמן', bills: 'בודק חשבונות לתשלום',
+    spotify: 'בודק מנוי Spotify', plants: 'בודק אילו עציצים צריכים השקיה', recurring: 'מזהה חיובים חוזרים',
+    tagger: 'בודק עסקאות שממתינות לתיוג', files: 'בודק אם הקבצים מעודכנים',
+  };
   const CACHE_KEY = 'landing_blocks_v1';
   /** Blocks loaded earlier in this tab ({id: {d, at}}); empty when storage is unavailable. */
   function readLandingCache() {
